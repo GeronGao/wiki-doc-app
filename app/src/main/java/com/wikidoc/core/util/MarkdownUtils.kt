@@ -26,19 +26,39 @@ object MarkdownUtils {
     }
 
     private fun wrapWithHtmlTemplate(body: String): String {
+        val processedBody = body
+            .replace("<pre><code class=\"language-mermaid\">", "<div class=\"mermaid\">")
+            .replace("</code></pre>", "</div>")
+            .replace("<pre><code class=\"mermaid\">", "<div class=\"mermaid\">")
+            .replace("&lt;div class=\"mermaid\"&gt;", "<div class=\"mermaid\">")
+            .replace("&lt;/div&gt;", "</div>")
+
         return """
             <!DOCTYPE html>
             <html>
             <head>
                 <meta charset="UTF-8">
                 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
                 <style>
                     ${getMarkdownStyles()}
                 </style>
             </head>
             <body>
-                $body
+                $processedBody
             </body>
+            <script>
+                mermaid.initialize({
+                    startOnLoad: true,
+                    theme: 'default',
+                    securityLevel: 'loose',
+                    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif',
+                    flowchart: {
+                        useMaxWidth: true,
+                        htmlLabels: true
+                    }
+                });
+            </script>
             </html>
         """.trimIndent()
     }
@@ -190,6 +210,19 @@ object MarkdownUtils {
         .task-list-item input[type="checkbox"] {
             margin-right: 8px;
         }
+        
+        .mermaid {
+            background-color: var(--bg-color);
+            border-radius: 8px;
+            padding: 16px;
+            margin: 16px 0;
+            text-align: center;
+        }
+        
+        .mermaid svg {
+            max-width: 100%;
+            height: auto;
+        }
     """.trimIndent()
 
     fun insertMarkdownSyntax(
@@ -219,6 +252,7 @@ object MarkdownUtils {
             MarkdownSyntax.IMAGE -> Triple("![alt](", ")", 2)
             MarkdownSyntax.TABLE -> Triple("| Column 1 | Column 2 |\n|----------|----------|\n| Cell 1   | Cell 2   |\n", "", 0)
             MarkdownSyntax.HORIZONTAL_RULE -> Triple("\n---\n", "", 0)
+            MarkdownSyntax.MERMAID -> Triple("```mermaid\ngraph TD\n    A[Start] --> B{Decision}\n    B -->|Yes| C[Result 1]\n    B -->|No| D[Result 2]\n", "\n```", 0)
         }
 
         val newText = before + prefix + selected + suffix + after
@@ -248,5 +282,6 @@ enum class MarkdownSyntax {
     LINK,
     IMAGE,
     TABLE,
-    HORIZONTAL_RULE
+    HORIZONTAL_RULE,
+    MERMAID
 }

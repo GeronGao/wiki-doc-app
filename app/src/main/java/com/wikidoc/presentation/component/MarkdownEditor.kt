@@ -499,9 +499,12 @@ fun MarkdownWebPreview(
             factory = { context ->
                 WebView(context).apply {
                     settings.apply {
-                        javaScriptEnabled = false
+                        javaScriptEnabled = true
+                        domStorageEnabled = true
                         loadWithOverviewMode = true
                         useWideViewPort = true
+                        builtInZoomControls = true
+                        displayZoomControls = false
                     }
                     webViewClient = WebViewClient()
                 }
