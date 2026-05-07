@@ -1,0 +1,19 @@
+{
+    "logs": [
+        {
+            "outputFile": "com.wikidoc.app-mergeDebugResources-65:/values-v16/values-v16.xml",
+            "map": [
+                {
+                    "source": "C:\\Users\\gaoyuan\\.gradle\\caches\\transforms-3\\ded6a7cfdaa8f9944854bf5cca6f68c6\\transformed\\core-1.12.0\\res\\values-v16\\values-v16.xml",
+                    "from": {
+                        "startLines": "2",
+                        "startColumns": "4",
+                        "startOffsets": "55",
+                        "endColumns": "65",
+                        "endOffsets": "116"
+                    }
+                }
+            ]
+        }
+    ]
+}
