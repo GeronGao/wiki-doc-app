@@ -310,6 +310,20 @@ fun EditorToolbarWithMode(
             )
 
             ToolbarButton(
+                icon = Icons.Default.AccountTree,
+                contentDescription = "流程图",
+                onClick = {
+                    val (newText, cursorPos) = MarkdownUtils.insertMarkdownSyntax(
+                        textFieldValue.text,
+                        textFieldValue.selection.start,
+                        textFieldValue.selection.end,
+                        MarkdownSyntax.MERMAID
+                    )
+                    onTextChange(TextFieldValue(newText, TextRange(cursorPos)))
+                }
+            )
+
+            ToolbarButton(
                 icon = Icons.Default.FormatQuote,
                 contentDescription = "引用",
                 onClick = {
