@@ -250,9 +250,9 @@ object MarkdownUtils {
             MarkdownSyntax.QUOTE -> Triple("> ", "\n", 2)
             MarkdownSyntax.LINK -> Triple("[", "](url)", 1)
             MarkdownSyntax.IMAGE -> Triple("![alt](", ")", 2)
-            MarkdownSyntax.TABLE -> Triple("| Column 1 | Column 2 |\n|----------|----------|\n| Cell 1   | Cell 2   |\n", "", 0)
+            MarkdownSyntax.TABLE -> Triple("| Column 1 | Column 2 |\n|----------|----------|\n| Cell 1   | Cell 2   |\n", "\n", 0)
             MarkdownSyntax.HORIZONTAL_RULE -> Triple("\n---\n", "", 0)
-            MarkdownSyntax.MERMAID -> Triple("```mermaid\ngraph TD\n    A[Start] --> B{Decision}\n    B -->|Yes| C[Result 1]\n    B -->|No| D[Result 2]\n", "\n```", 0)
+            MarkdownSyntax.MERMAID -> Triple("```mermaid\ngraph TD\n    A[Start] --> B{Decision}\n    B -->|Yes| C[Result 1]\n    B -->|No| D[Result 2]\n", "\n```\n", 0)
         }
 
         val newText = before + prefix + selected + suffix + after
