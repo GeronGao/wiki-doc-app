@@ -237,7 +237,7 @@ fun HomeScreen(
                             .offset {
                                 IntOffset(
                                     (dragState.position.x - 100.dp.toPx()).roundToInt(),
-                                    (dragState.position.y - 60.dp.toPx()).roundToInt()
+                                    (dragState.position.y).roundToInt()
                                 )
                             }
                             .size(width = 200.dp, height = 80.dp)
