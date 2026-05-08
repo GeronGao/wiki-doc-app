@@ -425,13 +425,11 @@ fun DocumentCard(
             }
             .pointerInput(document.id) {
                 var started = false
-                var totalDrag = Offset.Zero
                 var initialOffset = Offset.Zero
 
                 detectDragGesturesAfterLongPress(
                     onDragStart = { offset ->
                         started = true
-                        totalDrag = Offset.Zero
                         initialOffset = offset
                         val screenPos = cardPosition + offset
                         onDragStart(screenPos)
@@ -439,8 +437,7 @@ fun DocumentCard(
                     onDrag = { change, dragAmount ->
                         if (started) {
                             change.consume()
-                            totalDrag += dragAmount
-                            val screenPos = cardPosition + initialOffset + totalDrag
+                            val screenPos = cardPosition + change.position
                             onDrag(screenPos)
                         }
                     },
