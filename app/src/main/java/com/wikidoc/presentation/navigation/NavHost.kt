@@ -1,22 +1,45 @@
 package com.wikidoc.presentation.navigation
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.outlined.Home
-import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Person
+import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavType
@@ -28,60 +51,78 @@ import androidx.navigation.navArgument
 import com.wikidoc.presentation.editor.EditorScreen
 import com.wikidoc.presentation.folder.FolderScreen
 import com.wikidoc.presentation.home.HomeScreen
-import com.wikidoc.presentation.image.ImageManagerScreen
-import com.wikidoc.presentation.import_export.SmbImportScreen
 import com.wikidoc.presentation.search.SearchScreen
 import com.wikidoc.presentation.settings.SettingsScreen
+import com.wikidoc.presentation.theme.Primary
 
 data class BottomNavItem(
     val route: String,
     val title: String,
     val selectedIcon: ImageVector,
-    val unselectedIcon: ImageVector
+    val unselectedIcon: ImageVector,
+    val isCenter: Boolean = false
 )
 
 val bottomNavItems = listOf(
-    BottomNavItem(Screen.Home.route, "首页", Icons.Filled.Home, Icons.Outlined.Home),
-    BottomNavItem(Screen.Search.route, "搜索", Icons.Filled.Search, Icons.Outlined.Search),
-    BottomNavItem(Screen.Settings.route, "我的", Icons.Filled.Person, Icons.Outlined.Person)
+    BottomNavItem(
+        route = Screen.Home.route,
+        title = "首页",
+        selectedIcon = Icons.Filled.Home,
+        unselectedIcon = Icons.Outlined.Home
+    ),
+    BottomNavItem(
+        route = Screen.Search.route,
+        title = "搜索",
+        selectedIcon = Icons.Filled.Search,
+        unselectedIcon = Icons.Outlined.Search
+    ),
+    BottomNavItem(
+        route = "create",
+        title = "发布",
+        selectedIcon = Icons.Filled.Add,
+        unselectedIcon = Icons.Filled.Add,
+        isCenter = true
+    ),
+    BottomNavItem(
+        route = "message",
+        title = "消息",
+        selectedIcon = Icons.Filled.Home,
+        unselectedIcon = Icons.Outlined.Home
+    ),
+    BottomNavItem(
+        route = Screen.Settings.route,
+        title = "我的",
+        selectedIcon = Icons.Filled.Person,
+        unselectedIcon = Icons.Outlined.Person
+    )
 )
 
 @Composable
-fun WikiDocNavHost() {
+fun WikiDocNavHost(
+    onShowCreateDialog: () -> Unit = {}
+) {
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = navBackStackEntry?.destination
 
-    val showBottomBar = currentDestination?.route in bottomNavItems.map { it.route }
-
     Scaffold(
         bottomBar = {
-            if (showBottomBar) {
-                NavigationBar {
-                    bottomNavItems.forEach { item ->
-                        val selected = currentDestination?.hierarchy?.any { it.route == item.route } == true
-                        NavigationBarItem(
-                            icon = {
-                                Icon(
-                                    imageVector = if (selected) item.selectedIcon else item.unselectedIcon,
-                                    contentDescription = item.title
-                                )
-                            },
-                            label = { Text(item.title) },
-                            selected = selected,
-                            onClick = {
-                                navController.navigate(item.route) {
-                                    popUpTo(navController.graph.findStartDestination().id) {
-                                        saveState = true
-                                    }
-                                    launchSingleTop = true
-                                    restoreState = true
-                                }
+            XiaohongshuBottomNav(
+                currentRoute = currentDestination?.route,
+                onNavigate = { route ->
+                    if (route == "create") {
+                        onShowCreateDialog()
+                    } else {
+                        navController.navigate(route) {
+                            popUpTo(navController.graph.findStartDestination().id) {
+                                saveState = true
                             }
-                        )
+                            launchSingleTop = true
+                            restoreState = true
+                        }
                     }
                 }
-            }
+            )
         }
     ) { innerPadding ->
         NavHost(
@@ -102,6 +143,9 @@ fun WikiDocNavHost() {
                     },
                     onCreateFolder = {
                         navController.navigate(Screen.Folder.createRoute(0))
+                    },
+                    onCreateDocument = {
+                        onShowCreateDialog()
                     }
                 )
             }
@@ -126,10 +170,6 @@ fun WikiDocNavHost() {
                 )
             }
 
-            composable(Screen.ImageManager.route) {
-                ImageManagerScreen()
-            }
-
             composable(Screen.Settings.route) {
                 SettingsScreen(
                     onNavigateToSmbImport = { navController.navigate(Screen.SmbImport.route) },
@@ -152,7 +192,7 @@ fun WikiDocNavHost() {
             }
 
             composable(Screen.SmbImport.route) {
-                SmbImportScreen(
+                com.wikidoc.presentation.import_export.SmbImportScreen(
                     onBack = { navController.popBackStack() },
                     onImportComplete = { navController.popBackStack() }
                 )
@@ -163,6 +203,126 @@ fun WikiDocNavHost() {
                     onBack = { navController.popBackStack() }
                 )
             }
+        }
+    }
+}
+
+@Composable
+fun XiaohongshuBottomNav(
+    currentRoute: String?,
+    onNavigate: (String) -> Unit
+) {
+    NavigationBar(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(80.dp),
+        containerColor = Color.White,
+        tonalElevation = 0.dp
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp),
+            horizontalArrangement = Arrangement.SpaceEvenly,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            bottomNavItems.forEachIndexed { index, item ->
+                if (item.isCenter) {
+                    CenterFabButton(
+                        isSelected = false,
+                        onClick = { onNavigate(item.route) }
+                    )
+                } else {
+                    val isSelected = currentRoute == item.route
+                    BottomNavItem(
+                        icon = if (isSelected) item.selectedIcon else item.unselectedIcon,
+                        label = item.title,
+                        isSelected = isSelected,
+                        onClick = { onNavigate(item.route) }
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun BottomNavItem(
+    icon: ImageVector,
+    label: String,
+    isSelected: Boolean,
+    onClick: () -> Unit
+) {
+    val scale by animateFloatAsState(
+        targetValue = if (isSelected) 1.1f else 1f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessLow
+        ),
+        label = "scale"
+    )
+
+    val iconColor by animateColorAsState(
+        targetValue = if (isSelected) Primary else Color(0xFF999999),
+        animationSpec = spring(stiffness = Spring.StiffnessLow),
+        label = "color"
+    )
+
+    Column(
+        modifier = Modifier
+            .padding(vertical = 8.dp)
+            .clip(RoundedCornerShape(8.dp))
+            .padding(horizontal = 12.dp, vertical = 4.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = label,
+            modifier = Modifier
+                .size(26.dp)
+                .scale(scale),
+            tint = iconColor
+        )
+        Text(
+            text = label,
+            fontSize = 10.sp,
+            fontWeight = if (isSelected) FontWeight.Medium else FontWeight.Normal,
+            color = iconColor,
+            modifier = Modifier.padding(top = 2.dp)
+        )
+    }
+}
+
+@Composable
+fun CenterFabButton(
+    isSelected: Boolean,
+    onClick: () -> Unit
+) {
+    val scale by animateFloatAsState(
+        targetValue = 1f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessMedium
+        ),
+        label = "scale"
+    )
+
+    Box(
+        modifier = Modifier
+            .size(48.dp)
+            .scale(scale)
+            .clip(RoundedCornerShape(14.dp))
+            .background(Primary)
+            .padding(0.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        androidx.compose.material3.IconButton(onClick = onClick) {
+            Icon(
+                imageVector = Icons.Filled.Add,
+                contentDescription = "发布",
+                tint = Color.White,
+                modifier = Modifier.size(28.dp)
+            )
         }
     }
 }
