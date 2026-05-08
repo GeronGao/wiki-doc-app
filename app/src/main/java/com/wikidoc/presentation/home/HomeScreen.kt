@@ -425,12 +425,10 @@ fun DocumentCard(
             }
             .pointerInput(document.id) {
                 var started = false
-                var initialOffset = Offset.Zero
 
                 detectDragGesturesAfterLongPress(
                     onDragStart = { offset ->
                         started = true
-                        initialOffset = offset
                         val screenPos = cardPosition + offset
                         onDragStart(screenPos)
                     },
@@ -460,6 +458,10 @@ fun DocumentCard(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .combinedClickable(
+                    onClick = onClick,
+                    onLongClick = onLongClick
+                )
                 .padding(16.dp)
         ) {
             Row(
