@@ -401,6 +401,7 @@ fun FolderCard(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun DocumentCard(
     document: Document,
