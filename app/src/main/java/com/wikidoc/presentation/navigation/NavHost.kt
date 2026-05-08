@@ -2,15 +2,12 @@ package com.wikidoc.presentation.navigation
 
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Image
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.outlined.Home
-import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material.icons.outlined.Search
-import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -46,9 +43,7 @@ data class BottomNavItem(
 val bottomNavItems = listOf(
     BottomNavItem(Screen.Home.route, "首页", Icons.Filled.Home, Icons.Outlined.Home),
     BottomNavItem(Screen.Search.route, "搜索", Icons.Filled.Search, Icons.Outlined.Search),
-    BottomNavItem(Screen.Editor.createRoute(), "新建", Icons.Filled.Add, Icons.Filled.Add),
-    BottomNavItem(Screen.ImageManager.route, "图片", Icons.Filled.Image, Icons.Outlined.Image),
-    BottomNavItem(Screen.Settings.route, "设置", Icons.Filled.Settings, Icons.Outlined.Settings)
+    BottomNavItem(Screen.Settings.route, "我的", Icons.Filled.Person, Icons.Outlined.Person)
 )
 
 @Composable
