@@ -25,6 +25,12 @@ class DocumentRepositoryImpl @Inject constructor(
         }
     }
 
+    override fun getRootDocuments(): Flow<List<Document>> {
+        return externalDataStore.documents.map { entities ->
+            entities.filter { it.folderId == null }.map { it.toDomain() }
+        }
+    }
+
     override fun getFavoriteDocuments(): Flow<List<Document>> {
         return externalDataStore.documents.map { entities ->
             entities.filter { it.isFavorite }.map { it.toDomain() }

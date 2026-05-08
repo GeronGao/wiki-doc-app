@@ -13,4 +13,5 @@ sealed class Screen(val route: String) {
     }
     data object SmbImport : Screen("smb_import")
     data object Export : Screen("export")
+    data object Favorites : Screen("favorites")
 }

@@ -97,4 +97,24 @@ class FolderViewModel @Inject constructor(
             documentRepository.updateDocument(updated)
         }
     }
+
+    fun moveDocumentToFolder(documentId: Long, targetFolderId: Long) {
+        viewModelScope.launch {
+            val document = documentRepository.getDocumentById(documentId)
+            if (document != null) {
+                val updated = document.copy(folderId = targetFolderId, updatedAt = System.currentTimeMillis())
+                documentRepository.updateDocument(updated)
+            }
+        }
+    }
+
+    fun removeDocumentFromFolder(documentId: Long) {
+        viewModelScope.launch {
+            val document = documentRepository.getDocumentById(documentId)
+            if (document != null) {
+                val updated = document.copy(folderId = null, updatedAt = System.currentTimeMillis())
+                documentRepository.updateDocument(updated)
+            }
+        }
+    }
 }

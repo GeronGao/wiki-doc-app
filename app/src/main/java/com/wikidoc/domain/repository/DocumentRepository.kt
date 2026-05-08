@@ -6,6 +6,7 @@ import kotlinx.coroutines.flow.Flow
 interface DocumentRepository {
     fun getAllDocuments(): Flow<List<Document>>
     fun getDocumentsByFolder(folderId: Long): Flow<List<Document>>
+    fun getRootDocuments(): Flow<List<Document>>
     fun getFavoriteDocuments(): Flow<List<Document>>
     fun getRecentDocuments(limit: Int): Flow<List<Document>>
     fun searchDocuments(query: String): Flow<List<Document>>

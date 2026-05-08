@@ -22,20 +22,38 @@ class HomeViewModel @Inject constructor(
     private val _showCreateDocumentDialog = MutableStateFlow(false)
     val showCreateDocumentDialog: StateFlow<Boolean> = _showCreateDocumentDialog.asStateFlow()
 
+    private val _dragTargetedFolder = MutableStateFlow<Long?>(null)
+    val dragTargetedFolder: StateFlow<Long?> = _dragTargetedFolder.asStateFlow()
+
     init {
         loadData()
+    }
+
+    fun setDragTargetedFolder(folderId: Long?) {
+        _dragTargetedFolder.value = folderId
+    }
+
+    fun moveDocumentToFolder(documentId: Long, folderId: Long) {
+        viewModelScope.launch {
+            val document = documentRepository.getDocumentById(documentId)
+            if (document != null) {
+                val updated = document.copy(folderId = folderId, updatedAt = System.currentTimeMillis())
+                documentRepository.updateDocument(updated)
+            }
+            _dragTargetedFolder.value = null
+        }
     }
 
     private fun loadData() {
         viewModelScope.launch {
             combine(
-                documentRepository.getRecentDocuments(50),
+                documentRepository.getRootDocuments(),
                 documentRepository.getFavoriteDocuments(),
                 folderRepository.getRootFolders()
-            ) { recent, favorites, folders ->
+            ) { rootDocs, favorites, folders ->
                 HomeUiState(
                     isLoading = false,
-                    recentDocuments = recent,
+                    recentDocuments = rootDocs,
                     favoriteDocuments = favorites,
                     folders = folders
                 )

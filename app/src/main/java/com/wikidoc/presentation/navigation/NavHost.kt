@@ -5,6 +5,7 @@ import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,9 +21,11 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material.icons.outlined.Star
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -84,10 +87,10 @@ val bottomNavItems = listOf(
         isCenter = true
     ),
     BottomNavItem(
-        route = "message",
-        title = "消息",
-        selectedIcon = Icons.Filled.Home,
-        unselectedIcon = Icons.Outlined.Home
+        route = Screen.Favorites.route,
+        title = "收藏",
+        selectedIcon = Icons.Filled.Star,
+        unselectedIcon = Icons.Outlined.Star
     ),
     BottomNavItem(
         route = Screen.Settings.route,
@@ -187,6 +190,9 @@ fun WikiDocNavHost(
                     onBack = { navController.popBackStack() },
                     onDocumentClick = { documentId ->
                         navController.navigate(Screen.Editor.createRoute(documentId))
+                    },
+                    onFolderClick = { fId ->
+                        navController.navigate(Screen.Folder.createRoute(fId))
                     }
                 )
             }
@@ -201,6 +207,14 @@ fun WikiDocNavHost(
             composable(Screen.Export.route) {
                 com.wikidoc.presentation.import_export.ExportScreen(
                     onBack = { navController.popBackStack() }
+                )
+            }
+
+            composable(Screen.Favorites.route) {
+                com.wikidoc.presentation.favorites.FavoritesScreen(
+                    onDocumentClick = { documentId ->
+                        navController.navigate(Screen.Editor.createRoute(documentId))
+                    }
                 )
             }
         }
@@ -272,6 +286,7 @@ fun BottomNavItem(
         modifier = Modifier
             .padding(vertical = 8.dp)
             .clip(RoundedCornerShape(8.dp))
+            .clickable { onClick() }
             .padding(horizontal = 12.dp, vertical = 4.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {

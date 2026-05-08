@@ -12,6 +12,9 @@ interface DocumentDao {
     @Query("SELECT * FROM documents WHERE folderId = :folderId ORDER BY updatedAt DESC")
     fun getDocumentsByFolder(folderId: Long): Flow<List<DocumentEntity>>
 
+    @Query("SELECT * FROM documents WHERE folderId IS NULL ORDER BY updatedAt DESC")
+    fun getRootDocuments(): Flow<List<DocumentEntity>>
+
     @Query("SELECT * FROM documents WHERE isFavorite = 1 ORDER BY updatedAt DESC")
     fun getFavoriteDocuments(): Flow<List<DocumentEntity>>
 

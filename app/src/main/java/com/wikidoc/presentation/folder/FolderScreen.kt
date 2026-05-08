@@ -3,6 +3,8 @@ package com.wikidoc.presentation.folder
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -15,29 +17,59 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.wikidoc.domain.model.Document
 import com.wikidoc.domain.model.Folder
 import com.wikidoc.presentation.theme.DocumentIconColor
 import com.wikidoc.presentation.theme.FavoriteColor
 import com.wikidoc.presentation.theme.FolderIconColor
+import com.wikidoc.presentation.theme.Primary
+import com.wikidoc.presentation.theme.Surface
 import java.text.SimpleDateFormat
 import java.util.*
+import kotlin.math.roundToInt
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
+data class FolderDragState(
+    val documentId: Long = -1,
+    val isDragging: Boolean = false,
+    val position: Offset = Offset.Zero
+)
+
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FolderScreen(
     folderId: Long?,
     onBack: () -> Unit,
     onDocumentClick: (Long) -> Unit,
+    onFolderClick: (Long) -> Unit,
     viewModel: FolderViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val showCreateDocumentDialog by viewModel.showCreateDocumentDialog.collectAsState()
     var showCreateFolderDialog by remember { mutableStateOf(folderId == 0L) }
     var showMenu by remember { mutableStateOf<Long?>(null) }
+
+    var dragState by remember { mutableStateOf(FolderDragState()) }
+    var subFolderPositions by remember { mutableStateOf(mapOf<Long, Pair<Offset, Offset>>()) }
+
+    if (showCreateDocumentDialog) {
+        FolderCreateDocumentDialog(
+            onDismiss = { viewModel.hideCreateDocumentDialog() },
+            onConfirm = { title ->
+                viewModel.createDocument(title)
+            }
+        )
+    }
 
     Scaffold(
         topBar = {
@@ -77,41 +109,143 @@ fun FolderScreen(
             }
         }
     ) { padding ->
-        if (folderId == 0L) {
-            CreateFolderContent(
-                onCreateFolder = { name ->
-                    viewModel.createFolder(name)
-                    onBack()
-                },
-                modifier = Modifier.padding(padding)
-            )
-        } else {
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding),
-                contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                items(uiState.childFolders, key = { "folder_${it.id}" }) { folder ->
-                    FolderTreeItem(
-                        folder = folder,
-                        onClick = { },
-                        onMenuClick = { showMenu = folder.id }
-                    )
-                }
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+        ) {
+            if (folderId == 0L) {
+                CreateFolderContent(
+                    onCreateFolder = { name ->
+                        viewModel.createFolder(name)
+                        onBack()
+                    },
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(24.dp)
+                )
+            } else {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(uiState.childFolders, key = { "folder_${it.id}" }) { folder ->
+                        val isTargeted = dragState.isDragging &&
+                                subFolderPositions[folder.id]?.let { (topLeft, bottomRight) ->
+                                    dragState.position.x >= topLeft.x &&
+                                            dragState.position.x <= bottomRight.x &&
+                                            dragState.position.y >= topLeft.y &&
+                                            dragState.position.y <= bottomRight.y
+                                } == true
 
-                items(uiState.documents, key = { "doc_${it.id}" }) { document ->
-                    DocumentTreeItemFolder(
-                        document = document,
-                        onClick = { onDocumentClick(document.id) },
-                        onLongClick = { viewModel.toggleFavorite(document) }
-                    )
-                }
+                        FolderTreeItem(
+                            folder = folder,
+                            onClick = {
+                                if (dragState.isDragging && isTargeted) {
+                                    viewModel.moveDocumentToFolder(dragState.documentId, folder.id)
+                                    dragState = FolderDragState()
+                                } else {
+                                    onFolderClick(folder.id)
+                                }
+                            },
+                            onMenuClick = { showMenu = folder.id },
+                            isDragTarget = isTargeted,
+                            onPositioned = { topLeft, bottomRight ->
+                                subFolderPositions = subFolderPositions + (folder.id to (topLeft to bottomRight))
+                            }
+                        )
+                    }
 
-                if (uiState.childFolders.isEmpty() && uiState.documents.isEmpty()) {
-                    item {
-                        EmptyFolderState()
+                    items(uiState.documents, key = { "doc_${it.id}" }) { document ->
+                        val isDragging = dragState.documentId == document.id
+                        DocumentTreeItemFolder(
+                            document = document,
+                            onClick = {
+                                if (!dragState.isDragging) onDocumentClick(document.id)
+                            },
+                            onLongClick = { viewModel.toggleFavorite(document) },
+                            onDragStart = { offset ->
+                                dragState = FolderDragState(documentId = document.id, isDragging = true, position = offset)
+                            },
+                            onDrag = { offset ->
+                                dragState = dragState.copy(position = offset)
+                            },
+                            onDragEnd = {
+                                val targetedFolder = subFolderPositions.entries.find { (_, bounds) ->
+                                    val (topLeft, bottomRight) = bounds
+                                    dragState.position.x >= topLeft.x &&
+                                            dragState.position.x <= bottomRight.x &&
+                                            dragState.position.y >= topLeft.y &&
+                                            dragState.position.y <= bottomRight.y
+                                }
+                                if (targetedFolder != null) {
+                                    viewModel.moveDocumentToFolder(dragState.documentId, targetedFolder.key)
+                                }
+                                dragState = FolderDragState()
+                            },
+                            onDragCancel = {
+                                dragState = FolderDragState()
+                            }
+                        )
+                    }
+
+                    if (uiState.childFolders.isEmpty() && uiState.documents.isEmpty()) {
+                        item {
+                            EmptyFolderState()
+                        }
+                    }
+                }
+            }
+
+            if (dragState.isDragging) {
+                val draggingDoc = uiState.documents.find { it.id == dragState.documentId }
+                draggingDoc?.let { doc ->
+                    Box(
+                        modifier = Modifier
+                            .offset {
+                                IntOffset(
+                                    (dragState.position.x - 100.dp.toPx()).roundToInt(),
+                                    (dragState.position.y - 30.dp.toPx()).roundToInt()
+                                )
+                            }
+                            .size(width = 200.dp, height = 60.dp)
+                            .shadow(12.dp, RoundedCornerShape(16.dp))
+                    ) {
+                        Card(
+                            colors = CardDefaults.cardColors(containerColor = Surface),
+                            shape = RoundedCornerShape(16.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(36.dp)
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .background(DocumentIconColor.copy(alpha = 0.1f)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = doc.title.take(1).uppercase(),
+                                        fontSize = 16.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = DocumentIconColor
+                                    )
+                                }
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = doc.title.ifBlank { "无标题" },
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -129,25 +263,36 @@ fun FolderScreen(
     }
 }
 
-@OptIn(ExperimentalFoundationApi::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun FolderTreeItem(
     folder: Folder,
     onClick: () -> Unit,
-    onMenuClick: () -> Unit
+    onMenuClick: () -> Unit,
+    isDragTarget: Boolean = false,
+    onPositioned: (Offset, Offset) -> Unit = { _, _ -> }
 ) {
+    val backgroundColor = if (isDragTarget) Primary.copy(alpha = 0.1f) else MaterialTheme.colorScheme.surface
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
+            .onGloballyPositioned { coordinates ->
+                val position = coordinates.positionInRoot()
+                val size = coordinates.size
+                onPositioned(
+                    position,
+                    Offset(position.x + size.width, position.y + size.height)
+                )
+            }
             .combinedClickable(
                 onClick = onClick,
                 onLongClick = onMenuClick
             ),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        shape = RoundedCornerShape(12.dp)
+        colors = CardDefaults.cardColors(containerColor = backgroundColor),
+        elevation = CardDefaults.cardElevation(defaultElevation = if (isDragTarget) 4.dp else 0.dp),
+        shape = RoundedCornerShape(12.dp),
+        border = if (isDragTarget) androidx.compose.foundation.BorderStroke(2.dp, Primary) else null
     ) {
         Row(
             modifier = Modifier
@@ -196,20 +341,84 @@ fun FolderTreeItem(
     }
 }
 
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun DocumentTreeItemFolder(
     document: Document,
     onClick: () -> Unit,
-    onLongClick: () -> Unit
+    onLongClick: () -> Unit,
+    onDragStart: (Offset) -> Unit = {},
+    onDrag: (Offset) -> Unit = {},
+    onDragEnd: () -> Unit = {},
+    onDragCancel: () -> Unit = {}
 ) {
+    var cardPosition by remember { mutableStateOf(Offset.Zero) }
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .combinedClickable(
-                onClick = onClick,
-                onLongClick = onLongClick
-            ),
+            .onGloballyPositioned { coordinates ->
+                cardPosition = coordinates.positionInRoot()
+            }
+            .pointerInput(document.id) {
+                val longPressTimeout = 500L
+                val moveThreshold = 30f
+                var hasMoved = false
+                var triggeredLongPress = false
+                var dragStarted = false
+
+                awaitEachGesture {
+                    val down = awaitFirstDown(requireUnconsumed = false)
+                    hasMoved = false
+                    triggeredLongPress = false
+                    dragStarted = false
+
+                    val gestureStartTime = System.currentTimeMillis()
+                    val initialCardPos = cardPosition
+
+                    while (true) {
+                        val event = awaitPointerEvent()
+                        val changes = event.changes
+
+                        if (changes.isEmpty()) break
+
+                        val currentTime = System.currentTimeMillis()
+                        val elapsed = currentTime - gestureStartTime
+                        val firstChange = changes.first()
+                        val currentPos = firstChange.position
+                        val distance = (currentPos - down.position).getDistance()
+
+                        if (elapsed >= longPressTimeout && !triggeredLongPress && !hasMoved) {
+                            triggeredLongPress = true
+                            onLongClick()
+                        }
+
+                        if (distance > moveThreshold) {
+                            hasMoved = true
+                            if (!dragStarted) {
+                                dragStarted = true
+                                val absolutePos = Offset(
+                                    initialCardPos.x + down.position.x,
+                                    initialCardPos.y + down.position.y
+                                )
+                                onDragStart(absolutePos)
+                            }
+                            changes.forEach { it.consume() }
+                            val absoluteCurrentPos = Offset(
+                                cardPosition.x + currentPos.x,
+                                cardPosition.y + currentPos.y
+                            )
+                            onDrag(absoluteCurrentPos)
+                        }
+
+                        if (!changes.any { it.pressed }) {
+                            if (dragStarted) {
+                                onDragEnd()
+                            }
+                            break
+                        }
+                    }
+                }
+            },
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface
         ),
@@ -317,9 +526,7 @@ fun CreateFolderContent(
     var folderName by remember { mutableStateOf("") }
 
     Column(
-        modifier = modifier
-            .fillMaxSize()
-            .padding(24.dp),
+        modifier = modifier,
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
@@ -383,6 +590,41 @@ fun CreateFolderDialog(
                 enabled = folderName.isNotBlank()
             ) {
                 Text("创建")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("取消")
+            }
+        }
+    )
+}
+
+@Composable
+fun FolderCreateDocumentDialog(
+    onDismiss: () -> Unit,
+    onConfirm: (String) -> Unit
+) {
+    var title by remember { mutableStateOf("") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("新建文档") },
+        text = {
+            OutlinedTextField(
+                value = title,
+                onValueChange = { title = it },
+                label = { Text("文档标题") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp)
+            )
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { onConfirm(title.ifBlank { "无标题" }) }
+            ) {
+                Text("创建", color = MaterialTheme.colorScheme.primary)
             }
         },
         dismissButton = {
