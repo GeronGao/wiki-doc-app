@@ -104,6 +104,9 @@ fun WikiDocNavHost() {
                     },
                     onNavigateToSearch = {
                         navController.navigate(Screen.Search.route)
+                    },
+                    onCreateFolder = {
+                        navController.navigate(Screen.Folder.createRoute(0))
                     }
                 )
             }

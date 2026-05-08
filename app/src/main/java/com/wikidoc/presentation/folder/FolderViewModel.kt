@@ -3,6 +3,8 @@ package com.wikidoc.presentation.folder
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.wikidoc.domain.model.Document
+import com.wikidoc.domain.model.Folder
 import com.wikidoc.domain.repository.DocumentRepository
 import com.wikidoc.domain.repository.FolderRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -21,6 +23,9 @@ class FolderViewModel @Inject constructor(
 
     private val _uiState = MutableStateFlow(FolderUiState())
     val uiState: StateFlow<FolderUiState> = _uiState.asStateFlow()
+
+    private val _showCreateDocumentDialog = MutableStateFlow(false)
+    val showCreateDocumentDialog: StateFlow<Boolean> = _showCreateDocumentDialog.asStateFlow()
 
     init {
         loadFolder()
@@ -46,6 +51,50 @@ class FolderViewModel @Inject constructor(
             }.collect { state ->
                 _uiState.value = state
             }
+        }
+    }
+
+    fun showCreateDocumentDialog() {
+        _showCreateDocumentDialog.value = true
+    }
+
+    fun hideCreateDocumentDialog() {
+        _showCreateDocumentDialog.value = false
+    }
+
+    fun createDocument(title: String) {
+        viewModelScope.launch {
+            val document = Document(
+                title = title.ifBlank { "无标题" },
+                content = "",
+                folderId = if (folderId > 0) folderId else null,
+                tags = emptyList(),
+                isFavorite = false,
+                wordCount = 0,
+                updatedAt = System.currentTimeMillis(),
+                createdAt = System.currentTimeMillis()
+            )
+            documentRepository.saveDocument(document)
+            hideCreateDocumentDialog()
+        }
+    }
+
+    fun createFolder(name: String) {
+        viewModelScope.launch {
+            val folder = Folder(
+                name = name,
+                parentId = if (folderId > 0) folderId else null,
+                documentCount = 0,
+                createdAt = System.currentTimeMillis()
+            )
+            folderRepository.saveFolder(folder)
+        }
+    }
+
+    fun toggleFavorite(document: Document) {
+        viewModelScope.launch {
+            val updated = document.copy(isFavorite = !document.isFavorite)
+            documentRepository.updateDocument(updated)
         }
     }
 }

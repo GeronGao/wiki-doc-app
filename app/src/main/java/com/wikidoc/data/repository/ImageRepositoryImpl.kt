@@ -1,6 +1,6 @@
 package com.wikidoc.data.repository
 
-import com.wikidoc.data.local.database.dao.ImageDao
+import com.wikidoc.data.external.ExternalDataStore
 import com.wikidoc.data.local.database.entity.ImageEntity
 import com.wikidoc.domain.model.WikiImage
 import com.wikidoc.domain.repository.ImageRepository
@@ -9,41 +9,41 @@ import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 
 class ImageRepositoryImpl @Inject constructor(
-    private val imageDao: ImageDao
+    private val externalDataStore: ExternalDataStore
 ) : ImageRepository {
 
     override fun getAllImages(): Flow<List<WikiImage>> {
-        return imageDao.getAllImages().map { entities ->
+        return externalDataStore.images.map { entities ->
             entities.map { it.toDomain() }
         }
     }
 
     override fun getUsedImages(): Flow<List<WikiImage>> {
-        return imageDao.getUsedImages().map { entities ->
-            entities.map { it.toDomain() }
+        return externalDataStore.images.map { entities ->
+            entities.filter { it.documentId != null }.map { it.toDomain() }
         }
     }
 
     override fun getUnusedImages(): Flow<List<WikiImage>> {
-        return imageDao.getUnusedImages().map { entities ->
-            entities.map { it.toDomain() }
+        return externalDataStore.images.map { entities ->
+            entities.filter { it.documentId == null }.map { it.toDomain() }
         }
     }
 
     override suspend fun getImageById(id: Long): WikiImage? {
-        return imageDao.getImageById(id)?.toDomain()
+        return externalDataStore.getImageById(id)?.toDomain()
     }
 
     override suspend fun saveImage(image: WikiImage): Long {
-        return imageDao.insertImage(image.toEntity())
+        return externalDataStore.insertImage(image.toEntity())
     }
 
     override suspend fun updateImage(image: WikiImage) {
-        imageDao.updateImage(image.toEntity())
+        externalDataStore.updateImage(image.toEntity())
     }
 
     override suspend fun deleteImage(id: Long) {
-        imageDao.deleteImageById(id)
+        externalDataStore.deleteImage(id)
     }
 
     private fun ImageEntity.toDomain(): WikiImage {
