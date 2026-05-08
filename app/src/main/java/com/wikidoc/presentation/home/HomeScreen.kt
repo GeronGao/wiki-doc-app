@@ -193,9 +193,7 @@ fun HomeScreen(
                                 DocumentCard(
                                     document = document,
                                     isBeingDragged = isDraggingThis,
-                                    onClick = {
-                                        if (!dragState.isDragging) onDocumentClick(document.id)
-                                    },
+                                    onClick = { onDocumentClick(document.id) },
                                     onLongClick = { viewModel.toggleFavorite(document) },
                                     onDragStart = { offset ->
                                         dragState = DragState(documentId = document.id, isDragging = true, position = offset)
@@ -425,32 +423,63 @@ fun DocumentCard(
                 onPositioned(cardPosition)
             }
             .pointerInput(document.id) {
-                var started = false
+                val longPressTimeout = 500L
+                val moveThreshold = 30f
+                var hasMoved = false
+                var dragStarted = false
 
-                detectDragGesturesAfterLongPress(
-                    onDragStart = { offset ->
-                        started = true
-                        val screenPos = cardPosition + offset
-                        onDragStart(screenPos)
-                    },
-                    onDrag = { change, dragAmount ->
-                        if (started) {
-                            change.consume()
-                            val screenPos = cardPosition + change.position
-                            onDrag(screenPos)
+                awaitEachGesture {
+                    val down = awaitFirstDown(requireUnconsumed = false)
+                    hasMoved = false
+                    dragStarted = false
+
+                    val gestureStartTime = System.currentTimeMillis()
+                    val initialCardPos = cardPosition
+
+                    while (true) {
+                        val event = awaitPointerEvent()
+                        val changes = event.changes
+
+                        if (changes.isEmpty()) break
+
+                        val currentTime = System.currentTimeMillis()
+                        val elapsed = currentTime - gestureStartTime
+                        val firstChange = changes.first()
+                        val currentPos = firstChange.position
+                        val distance = (currentPos - down.position).getDistance()
+
+                        if (elapsed >= longPressTimeout && !hasMoved) {
+                            onLongClick()
                         }
-                    },
-                    onDragEnd = {
-                        if (started) {
-                            onDragEnd()
+
+                        if (distance > moveThreshold) {
+                            hasMoved = true
+                            if (!dragStarted) {
+                                dragStarted = true
+                                val absolutePos = Offset(
+                                    initialCardPos.x + down.position.x,
+                                    initialCardPos.y + down.position.y
+                                )
+                                onDragStart(absolutePos)
+                            }
+                            changes.forEach { it.consume() }
+                            val absoluteCurrentPos = Offset(
+                                cardPosition.x + currentPos.x,
+                                cardPosition.y + currentPos.y
+                            )
+                            onDrag(absoluteCurrentPos)
                         }
-                        started = false
-                    },
-                    onDragCancel = {
-                        started = false
-                        onDragCancel()
+
+                        if (!changes.any { it.pressed }) {
+                            if (dragStarted) {
+                                onDragEnd()
+                            } else if (!hasMoved) {
+                                onClick()
+                            }
+                            break
+                        }
                     }
-                )
+                }
             },
         colors = CardDefaults.cardColors(containerColor = Surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
@@ -459,10 +488,6 @@ fun DocumentCard(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .combinedClickable(
-                    onClick = onClick,
-                    onLongClick = onLongClick
-                )
                 .padding(16.dp)
         ) {
             Row(

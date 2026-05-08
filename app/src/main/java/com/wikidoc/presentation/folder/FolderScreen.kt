@@ -189,8 +189,8 @@ fun FolderScreen(
                                             dragState.position.y <= bottomRight.y
                                 }
                                 when {
-                                    dragState.isOverPortal -> {
-                                        viewModel.removeDocumentFromFolder(dragState.documentId)
+                                    dragState.isOverPortal && folderId != 0L -> {
+                                        viewModel.moveDocumentToParentFolder(dragState.documentId)
                                     }
                                     targetedFolder != null -> {
                                         viewModel.moveDocumentToFolder(dragState.documentId, targetedFolder.key)
@@ -374,6 +374,7 @@ fun FolderTreeItem(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun DocumentTreeItemFolder(
     document: Document,
@@ -461,6 +462,10 @@ fun DocumentTreeItemFolder(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .combinedClickable(
+                    onClick = onClick,
+                    onLongClick = onLongClick
+                )
                 .padding(16.dp)
         ) {
             Row(

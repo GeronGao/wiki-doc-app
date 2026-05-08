@@ -24,6 +24,8 @@ class FolderViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(FolderUiState())
     val uiState: StateFlow<FolderUiState> = _uiState.asStateFlow()
 
+    val currentFolderId: Long = folderId
+
     private val _showCreateDocumentDialog = MutableStateFlow(false)
     val showCreateDocumentDialog: StateFlow<Boolean> = _showCreateDocumentDialog.asStateFlow()
 
@@ -113,6 +115,18 @@ class FolderViewModel @Inject constructor(
             val document = documentRepository.getDocumentById(documentId)
             if (document != null) {
                 val updated = document.copy(folderId = null, updatedAt = System.currentTimeMillis())
+                documentRepository.updateDocument(updated)
+            }
+        }
+    }
+
+    fun moveDocumentToParentFolder(documentId: Long) {
+        viewModelScope.launch {
+            val document = documentRepository.getDocumentById(documentId)
+            if (document != null && folderId > 0) {
+                val currentFolder = folderRepository.getFolderById(folderId)
+                val parentFolderId = currentFolder?.parentId
+                val updated = document.copy(folderId = parentFolderId, updatedAt = System.currentTimeMillis())
                 documentRepository.updateDocument(updated)
             }
         }
