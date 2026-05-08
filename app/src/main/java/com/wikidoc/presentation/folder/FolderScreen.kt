@@ -1,7 +1,9 @@
 package com.wikidoc.presentation.folder
 
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
@@ -22,10 +24,13 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.wikidoc.domain.model.Document
@@ -33,6 +38,7 @@ import com.wikidoc.domain.model.Folder
 import com.wikidoc.presentation.theme.DocumentIconColor
 import com.wikidoc.presentation.theme.FavoriteColor
 import com.wikidoc.presentation.theme.FolderIconColor
+import com.wikidoc.presentation.theme.OnSurface
 import com.wikidoc.presentation.theme.Primary
 import com.wikidoc.presentation.theme.Surface
 import java.text.SimpleDateFormat
@@ -42,7 +48,8 @@ import kotlin.math.roundToInt
 data class FolderDragState(
     val documentId: Long = -1,
     val isDragging: Boolean = false,
-    val position: Offset = Offset.Zero
+    val position: Offset = Offset.Zero,
+    val isOverPortal: Boolean = false
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -56,6 +63,7 @@ fun FolderScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val showCreateDocumentDialog by viewModel.showCreateDocumentDialog.collectAsState()
+    val density = LocalDensity.current
     var showCreateFolderDialog by remember { mutableStateOf(folderId == 0L) }
     var showMenu by remember { mutableStateOf<Long?>(null) }
 
@@ -169,7 +177,8 @@ fun FolderScreen(
                                 dragState = FolderDragState(documentId = document.id, isDragging = true, position = offset)
                             },
                             onDrag = { offset ->
-                                dragState = dragState.copy(position = offset)
+                                val isOverPortal = offset.x < with(density) { 80.dp.toPx() }
+                                dragState = dragState.copy(position = offset, isOverPortal = isOverPortal)
                             },
                             onDragEnd = {
                                 val targetedFolder = subFolderPositions.entries.find { (_, bounds) ->
@@ -179,8 +188,13 @@ fun FolderScreen(
                                             dragState.position.y >= topLeft.y &&
                                             dragState.position.y <= bottomRight.y
                                 }
-                                if (targetedFolder != null) {
-                                    viewModel.moveDocumentToFolder(dragState.documentId, targetedFolder.key)
+                                when {
+                                    dragState.isOverPortal -> {
+                                        viewModel.removeDocumentFromFolder(dragState.documentId)
+                                    }
+                                    targetedFolder != null -> {
+                                        viewModel.moveDocumentToFolder(dragState.documentId, targetedFolder.key)
+                                    }
                                 }
                                 dragState = FolderDragState()
                             },
@@ -200,6 +214,19 @@ fun FolderScreen(
 
             if (dragState.isDragging) {
                 val draggingDoc = uiState.documents.find { it.id == dragState.documentId }
+                val isOverPortal = dragState.isOverPortal
+
+                if (isOverPortal) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxHeight()
+                            .width(80.dp)
+                            .align(Alignment.CenterStart)
+                    ) {
+                        PortalEffect()
+                    }
+                }
+
                 draggingDoc?.let { doc ->
                     Box(
                         modifier = Modifier
@@ -210,10 +237,12 @@ fun FolderScreen(
                                 )
                             }
                             .size(width = 200.dp, height = 60.dp)
-                            .shadow(12.dp, RoundedCornerShape(16.dp))
+                            .shadow(if (isOverPortal) 20.dp else 12.dp, RoundedCornerShape(16.dp))
                     ) {
                         Card(
-                            colors = CardDefaults.cardColors(containerColor = Surface),
+                            colors = CardDefaults.cardColors(
+                                containerColor = if (isOverPortal) Primary.copy(alpha = 0.9f) else Surface
+                            ),
                             shape = RoundedCornerShape(16.dp)
                         ) {
                             Row(
@@ -226,21 +255,25 @@ fun FolderScreen(
                                     modifier = Modifier
                                         .size(36.dp)
                                         .clip(RoundedCornerShape(8.dp))
-                                        .background(DocumentIconColor.copy(alpha = 0.1f)),
+                                        .background(
+                                            if (isOverPortal) Color.White.copy(alpha = 0.3f)
+                                            else DocumentIconColor.copy(alpha = 0.1f)
+                                        ),
                                     contentAlignment = Alignment.Center
                                 ) {
-                                    Text(
-                                        text = doc.title.take(1).uppercase(),
-                                        fontSize = 16.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = DocumentIconColor
+                                    Icon(
+                                        imageVector = if (isOverPortal) Icons.Default.ExitToApp else Icons.Default.Article,
+                                        contentDescription = null,
+                                        tint = if (isOverPortal) Color.White else DocumentIconColor,
+                                        modifier = Modifier.size(20.dp)
                                     )
                                 }
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text(
-                                    text = doc.title.ifBlank { "无标题" },
+                                    text = if (isOverPortal) "移出文件夹" else doc.title.ifBlank { "无标题" },
                                     fontSize = 14.sp,
                                     fontWeight = FontWeight.Medium,
+                                    color = if (isOverPortal) Color.White else OnSurface,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis
                                 )
@@ -661,6 +694,75 @@ fun EmptyFolderState() {
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
         )
+    }
+}
+
+@Composable
+fun PortalEffect() {
+    val infiniteTransition = rememberInfiniteTransition(label = "portal")
+    val alpha by infiniteTransition.animateFloat(
+        initialValue = 0.3f,
+        targetValue = 0.8f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1000, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "pulse"
+    )
+    val scale by infiniteTransition.animateFloat(
+        initialValue = 0.95f,
+        targetValue = 1.05f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(800, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "scale"
+    )
+
+    Box(
+        modifier = Modifier
+            .fillMaxHeight()
+            .width(80.dp)
+            .background(
+                Brush.verticalGradient(
+                    colors = listOf(
+                        Primary.copy(alpha = alpha * 0.3f),
+                        Primary.copy(alpha = alpha * 0.6f),
+                        Primary.copy(alpha = alpha * 0.3f)
+                    )
+                )
+            )
+            .border(
+                width = 2.dp,
+                brush = Brush.verticalGradient(
+                    colors = listOf(
+                        Primary.copy(alpha = alpha),
+                        Primary.copy(alpha = alpha * 0.5f),
+                        Primary.copy(alpha = alpha)
+                    )
+                ),
+                shape = RoundedCornerShape(topEnd = 16.dp, bottomEnd = 16.dp)
+            ),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Icon(
+                imageVector = Icons.Default.ArrowBack,
+                contentDescription = null,
+                tint = Primary.copy(alpha = alpha),
+                modifier = Modifier.size(28.dp)
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "移出",
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold,
+                color = Primary.copy(alpha = alpha)
+            )
+        }
     }
 }
 
