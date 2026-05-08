@@ -1,7 +1,9 @@
 package com.wikidoc.data.external
 
 import android.content.Context
+import android.os.Build
 import android.os.Environment
+import androidx.core.content.ContextCompat
 import com.wikidoc.data.local.database.entity.DocumentEntity
 import com.wikidoc.data.local.database.entity.FolderEntity
 import com.wikidoc.data.local.database.entity.ImageEntity
@@ -91,8 +93,7 @@ class ExternalDataStore @Inject constructor(
     private var initialized = false
 
     private fun getDataDirectory(): File {
-        val externalDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS)
-        val wikiDir = File(externalDir, "WikiDoc")
+        val wikiDir = File(context.getExternalFilesDir(null), "WikiDoc")
         if (!wikiDir.exists()) {
             wikiDir.mkdirs()
         }
@@ -113,8 +114,11 @@ class ExternalDataStore @Inject constructor(
         if (file.exists()) {
             try {
                 val content = file.readText()
-                dataStore = json.decodeFromString<WikiDataStore>(content)
+                if (content.isNotBlank()) {
+                    dataStore = json.decodeFromString<WikiDataStore>(content)
+                }
             } catch (e: Exception) {
+                e.printStackTrace()
                 dataStore = WikiDataStore()
             }
         }
@@ -127,8 +131,13 @@ class ExternalDataStore @Inject constructor(
     }
 
     private suspend fun save() = withContext(Dispatchers.IO) {
-        val file = getDataFile()
-        file.writeText(json.encodeToString(dataStore))
+        try {
+            val file = getDataFile()
+            val content = json.encodeToString(dataStore)
+            file.writeText(content)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 
     suspend fun insertDocument(document: DocumentEntity): Long = withContext(Dispatchers.IO) {
