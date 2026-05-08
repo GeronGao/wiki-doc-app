@@ -38,7 +38,17 @@ fun HomeScreen(
     viewModel: HomeViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val showCreateDialog by viewModel.showCreateDocumentDialog.collectAsState()
     var showMenu by remember { mutableStateOf(false) }
+
+    if (showCreateDialog) {
+        CreateDocumentDialog(
+            onDismiss = { viewModel.hideCreateDocumentDialog() },
+            onConfirm = { title ->
+                viewModel.createDocument(title)
+            }
+        )
+    }
 
     Scaffold(
         topBar = {
@@ -117,6 +127,40 @@ fun HomeScreen(
             )
         }
     }
+}
+
+@Composable
+fun CreateDocumentDialog(
+    onDismiss: () -> Unit,
+    onConfirm: (String) -> Unit
+) {
+    var title by remember { mutableStateOf("") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("新建文档") },
+        text = {
+            OutlinedTextField(
+                value = title,
+                onValueChange = { title = it },
+                label = { Text("文档标题") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { onConfirm(title.ifBlank { "无标题" }) }
+            ) {
+                Text("创建")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("取消")
+            }
+        }
+    )
 }
 
 @Composable
