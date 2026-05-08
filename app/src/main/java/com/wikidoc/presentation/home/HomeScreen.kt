@@ -237,7 +237,7 @@ fun HomeScreen(
                             .offset {
                                 IntOffset(
                                     (dragState.position.x - 100.dp.toPx()).roundToInt(),
-                                    (dragState.position.y + 80.dp.toPx()).roundToInt()
+                                    (dragState.position.y).roundToInt()
                                 )
                             }
                             .size(width = 200.dp, height = 80.dp)
@@ -426,11 +426,13 @@ fun DocumentCard(
             .pointerInput(document.id) {
                 var started = false
                 var totalDrag = Offset.Zero
+                var initialOffset = Offset.Zero
 
                 detectDragGesturesAfterLongPress(
                     onDragStart = { offset ->
                         started = true
                         totalDrag = Offset.Zero
+                        initialOffset = offset
                         val screenPos = cardPosition + offset
                         onDragStart(screenPos)
                     },
@@ -438,7 +440,7 @@ fun DocumentCard(
                         if (started) {
                             change.consume()
                             totalDrag += dragAmount
-                            val screenPos = cardPosition + totalDrag
+                            val screenPos = cardPosition + initialOffset + totalDrag
                             onDrag(screenPos)
                         }
                     },
