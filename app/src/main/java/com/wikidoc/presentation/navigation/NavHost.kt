@@ -199,7 +199,7 @@ fun WikiDocNavHost(
 
             composable(Screen.SmbImport.route) {
                 com.wikidoc.presentation.import_export.SmbImportScreen(
-                    onBack = { navController.popBackStack() },
+                    onNavigateBack = { navController.popBackStack() },
                     onImportComplete = { navController.popBackStack() }
                 )
             }
