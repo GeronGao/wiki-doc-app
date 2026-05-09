@@ -244,6 +244,8 @@ class ExternalDataStore @Inject constructor(
 
     fun getDocumentsFlow(): Flow<List<DocumentEntity>> = documents
 
+    fun getDocuments(): List<DocumentEntity> = _documents.value
+
     fun getFoldersFlow(): Flow<List<FolderEntity>> = folders
 
     fun getImagesFlow(): Flow<List<ImageEntity>> = images

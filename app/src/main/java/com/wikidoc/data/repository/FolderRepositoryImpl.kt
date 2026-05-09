@@ -5,6 +5,7 @@ import com.wikidoc.data.local.database.entity.FolderEntity
 import com.wikidoc.domain.model.Folder
 import com.wikidoc.domain.repository.FolderRepository
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 
@@ -13,25 +14,36 @@ class FolderRepositoryImpl @Inject constructor(
 ) : FolderRepository {
 
     override fun getAllFolders(): Flow<List<Folder>> {
-        return externalDataStore.folders.map { entities ->
-            entities.map { it.toDomain() }
+        return combine(externalDataStore.folders, externalDataStore.documents) { folders, documents ->
+            folders.map { entity ->
+                val count = documents.count { it.folderId == entity.id }
+                entity.toDomain(count)
+            }
         }
     }
 
     override fun getRootFolders(): Flow<List<Folder>> {
-        return externalDataStore.folders.map { entities ->
-            entities.filter { it.parentId == null }.map { it.toDomain() }
+        return combine(externalDataStore.folders, externalDataStore.documents) { folders, documents ->
+            folders.filter { it.parentId == null }.map { entity ->
+                val count = documents.count { it.folderId == entity.id }
+                entity.toDomain(count)
+            }
         }
     }
 
     override fun getChildFolders(parentId: Long): Flow<List<Folder>> {
-        return externalDataStore.folders.map { entities ->
-            entities.filter { it.parentId == parentId }.map { it.toDomain() }
+        return combine(externalDataStore.folders, externalDataStore.documents) { folders, documents ->
+            folders.filter { it.parentId == parentId }.map { entity ->
+                val count = documents.count { it.folderId == entity.id }
+                entity.toDomain(count)
+            }
         }
     }
 
     override suspend fun getFolderById(id: Long): Folder? {
-        return externalDataStore.getFolderById(id)?.toDomain()
+        val entity = externalDataStore.getFolderById(id) ?: return null
+        val count = externalDataStore.getDocuments().count { it.folderId == id }
+        return entity.toDomain(count)
     }
 
     override suspend fun saveFolder(folder: Folder): Long {
@@ -46,7 +58,7 @@ class FolderRepositoryImpl @Inject constructor(
         externalDataStore.deleteFolder(id)
     }
 
-    private fun FolderEntity.toDomain(): Folder {
+    private fun FolderEntity.toDomain(documentCount: Int = 0): Folder {
         return Folder(
             id = id,
             name = name,
@@ -54,7 +66,8 @@ class FolderRepositoryImpl @Inject constructor(
             color = color,
             icon = icon,
             sortOrder = sortOrder,
-            createdAt = createdAt
+            createdAt = createdAt,
+            documentCount = documentCount
         )
     }
 
