@@ -44,6 +44,17 @@ class HomeViewModel @Inject constructor(
         }
     }
 
+    fun moveFolderToFolder(folderId: Long, targetFolderId: Long) {
+        viewModelScope.launch {
+            val folder = folderRepository.getFolderById(folderId)
+            if (folder != null) {
+                val updated = folder.copy(parentId = targetFolderId)
+                folderRepository.updateFolder(updated)
+            }
+            _dragTargetedFolder.value = null
+        }
+    }
+
     private fun loadData() {
         viewModelScope.launch {
             combine(

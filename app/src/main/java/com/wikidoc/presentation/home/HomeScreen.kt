@@ -51,11 +51,19 @@ import java.util.*
 import kotlin.math.roundToInt
 
 data class DragState(
+    val draggingType: DragType = DragType.None,
     val documentId: Long = -1,
+    val folderId: Long = -1,
     val isDragging: Boolean = false,
     val position: Offset = Offset.Zero,
     val cardRootPosition: Offset = Offset.Zero
 )
+
+sealed class DragType {
+    data object None : DragType()
+    data object Document : DragType()
+    data object Folder : DragType()
+}
 
 sealed class HomeItem {
     data class FolderItem(val folder: Folder) : HomeItem()
@@ -80,6 +88,7 @@ fun HomeScreen(
 
     fun isOverFolder(folderId: Long): Boolean {
         if (!dragState.isDragging) return false
+        if (dragState.draggingType == DragType.Folder && dragState.folderId == folderId) return false
         val bounds = folderPositions[folderId] ?: return false
         val (topLeft, bottomRight) = bounds
         return dragState.position.x >= topLeft.x &&
@@ -165,6 +174,7 @@ fun HomeScreen(
                         when (item) {
                             is HomeItem.FolderItem -> {
                                 val folder = item.folder
+                                val isDraggingThis = dragState.folderId == folder.id && dragState.draggingType == DragType.Folder
                                 val isTargeted = isOverFolder(folder.id)
 
                                 LaunchedEffect(isTargeted) {
@@ -174,14 +184,40 @@ fun HomeScreen(
                                 FolderCard(
                                     folder = folder,
                                     onClick = {
-                                        if (dragState.isDragging && isTargeted) {
+                                        if (dragState.isDragging && isTargeted && dragState.draggingType == DragType.Document) {
                                             viewModel.moveDocumentToFolder(dragState.documentId, folder.id)
                                             dragState = DragState()
-                                        } else {
+                                        } else if (!dragState.isDragging) {
                                             onFolderClick(folder.id)
                                         }
                                     },
                                     isDragTarget = isTargeted,
+                                    isBeingDragged = isDraggingThis,
+                                    onDragStart = { offset ->
+                                        dragState = DragState(draggingType = DragType.Folder, folderId = folder.id, isDragging = true, position = offset)
+                                    },
+                                    onDrag = { offset ->
+                                        dragState = dragState.copy(position = offset)
+                                    },
+                                    onDragEnd = {
+                                        val targetedFolderId = folderPositions.entries.find { (id, bounds) ->
+                                            if (id == folder.id) return@find false
+                                            val (topLeft, bottomRight) = bounds
+                                            dragState.position.x >= topLeft.x &&
+                                                    dragState.position.x <= bottomRight.x &&
+                                                    dragState.position.y >= topLeft.y &&
+                                                    dragState.position.y <= bottomRight.y
+                                        }?.key
+                                        if (targetedFolderId != null) {
+                                            viewModel.moveFolderToFolder(folder.id, targetedFolderId)
+                                        }
+                                        dragState = DragState()
+                                        viewModel.setDragTargetedFolder(null)
+                                    },
+                                    onDragCancel = {
+                                        dragState = DragState()
+                                        viewModel.setDragTargetedFolder(null)
+                                    },
                                     onPositioned = { topLeft, bottomRight ->
                                         folderPositions = folderPositions + (folder.id to (topLeft to bottomRight))
                                     }
@@ -189,14 +225,14 @@ fun HomeScreen(
                             }
                             is HomeItem.DocumentItem -> {
                                 val document = item.document
-                                val isDraggingThis = dragState.documentId == document.id && dragState.isDragging
+                                val isDraggingThis = dragState.documentId == document.id && dragState.draggingType == DragType.Document && dragState.isDragging
                                 DocumentCard(
                                     document = document,
                                     isBeingDragged = isDraggingThis,
                                     onClick = { onDocumentClick(document.id) },
                                     onLongClick = { viewModel.toggleFavorite(document) },
                                     onDragStart = { offset ->
-                                        dragState = DragState(documentId = document.id, isDragging = true, position = offset)
+                                        dragState = DragState(draggingType = DragType.Document, documentId = document.id, isDragging = true, position = offset)
                                     },
                                     onDrag = { offset ->
                                         dragState = dragState.copy(position = offset)
@@ -228,55 +264,112 @@ fun HomeScreen(
             }
 
             if (dragState.isDragging) {
-                val draggingDoc = uiState.recentDocuments.find { it.id == dragState.documentId }
-                draggingDoc?.let { doc ->
-                    Box(
-                        modifier = Modifier
-                            .offset {
-                                IntOffset(
-                                    (dragState.position.x - 100.dp.toPx()).roundToInt(),
-                                    (dragState.position.y).roundToInt()
-                                )
-                            }
-                            .size(width = 200.dp, height = 80.dp)
-                            .shadow(12.dp, RoundedCornerShape(16.dp))
-                    ) {
-                        Card(
-                            colors = CardDefaults.cardColors(containerColor = Surface),
-                            shape = RoundedCornerShape(16.dp)
-                        ) {
-                            Row(
+                when (dragState.draggingType) {
+                    DragType.Document -> {
+                        val draggingDoc = uiState.recentDocuments.find { it.id == dragState.documentId }
+                        draggingDoc?.let { doc ->
+                            Box(
                                 modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(12.dp),
-                                verticalAlignment = Alignment.CenterVertically
+                                    .offset {
+                                        IntOffset(
+                                            (dragState.position.x - 100.dp.toPx()).roundToInt(),
+                                            (dragState.position.y).roundToInt()
+                                        )
+                                    }
+                                    .size(width = 200.dp, height = 80.dp)
+                                    .shadow(12.dp, RoundedCornerShape(16.dp))
                             ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(36.dp)
-                                        .clip(RoundedCornerShape(8.dp))
-                                        .background(DocumentIconColor.copy(alpha = 0.1f)),
-                                    contentAlignment = Alignment.Center
+                                Card(
+                                    colors = CardDefaults.cardColors(containerColor = Surface),
+                                    shape = RoundedCornerShape(16.dp)
                                 ) {
-                                    Text(
-                                        text = doc.title.take(1).uppercase(),
-                                        fontSize = 16.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = DocumentIconColor
-                                    )
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(12.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(36.dp)
+                                                .clip(RoundedCornerShape(8.dp))
+                                                .background(DocumentIconColor.copy(alpha = 0.1f)),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Text(
+                                                text = doc.title.take(1).uppercase(),
+                                                fontSize = 16.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = DocumentIconColor
+                                            )
+                                        }
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text(
+                                            text = doc.title.ifBlank { "无标题" },
+                                            fontSize = 14.sp,
+                                            fontWeight = FontWeight.Medium,
+                                            color = OnSurface,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    }
                                 }
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(
-                                    text = doc.title.ifBlank { "无标题" },
-                                    fontSize = 14.sp,
-                                    fontWeight = FontWeight.Medium,
-                                    color = OnSurface,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
                             }
                         }
                     }
+                    DragType.Folder -> {
+                        val draggingFolder = uiState.folders.find { it.id == dragState.folderId }
+                        draggingFolder?.let { folder ->
+                            Box(
+                                modifier = Modifier
+                                    .offset {
+                                        IntOffset(
+                                            (dragState.position.x - 100.dp.toPx()).roundToInt(),
+                                            (dragState.position.y).roundToInt()
+                                        )
+                                    }
+                                    .size(width = 200.dp, height = 80.dp)
+                                    .shadow(12.dp, RoundedCornerShape(16.dp))
+                            ) {
+                                Card(
+                                    colors = CardDefaults.cardColors(containerColor = Surface),
+                                    shape = RoundedCornerShape(16.dp)
+                                ) {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(12.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(36.dp)
+                                                .clip(RoundedCornerShape(8.dp))
+                                                .background(FolderIconColor.copy(alpha = 0.15f)),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Folder,
+                                                contentDescription = null,
+                                                tint = FolderIconColor,
+                                                modifier = Modifier.size(20.dp)
+                                            )
+                                        }
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text(
+                                            text = folder.name,
+                                            fontSize = 14.sp,
+                                            fontWeight = FontWeight.Medium,
+                                            color = OnSurface,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    DragType.None -> {}
                 }
             }
         }
@@ -326,22 +419,82 @@ fun FolderCard(
     folder: Folder,
     onClick: () -> Unit,
     isDragTarget: Boolean = false,
+    isBeingDragged: Boolean = false,
+    onDragStart: (Offset) -> Unit = {},
+    onDrag: (Offset) -> Unit = {},
+    onDragEnd: () -> Unit = {},
+    onDragCancel: () -> Unit = {},
     onPositioned: (Offset, Offset) -> Unit = { _, _ -> }
 ) {
+    var cardPosition by remember { mutableStateOf(Offset.Zero) }
     val backgroundColor = if (isDragTarget) Primary.copy(alpha = 0.1f) else Surface
 
     Card(
         modifier = Modifier
             .fillMaxWidth()
+            .alpha(if (isBeingDragged) 0.3f else 1f)
             .onGloballyPositioned { coordinates ->
-                val position = coordinates.positionInRoot()
+                cardPosition = coordinates.positionInRoot()
                 val size = coordinates.size
                 onPositioned(
-                    position,
-                    Offset(position.x + size.width, position.y + size.height)
+                    cardPosition,
+                    Offset(cardPosition.x + size.width, cardPosition.y + size.height)
                 )
             }
-            .combinedClickable(onClick = onClick)
+            .pointerInput(folder.id) {
+                val longPressTimeout = 500L
+                val moveThreshold = 30f
+                var hasMoved = false
+                var dragStarted = false
+
+                awaitEachGesture {
+                    val down = awaitFirstDown(requireUnconsumed = false)
+                    hasMoved = false
+                    dragStarted = false
+
+                    val gestureStartTime = System.currentTimeMillis()
+
+                    while (true) {
+                        val event = awaitPointerEvent()
+                        val changes = event.changes
+
+                        if (changes.isEmpty()) break
+
+                        val currentTime = System.currentTimeMillis()
+                        val elapsed = currentTime - gestureStartTime
+                        val firstChange = changes.first()
+                        val currentPos = firstChange.position
+                        val distance = (currentPos - down.position).getDistance()
+
+                        if (distance > moveThreshold) {
+                            hasMoved = true
+                            if (!dragStarted) {
+                                dragStarted = true
+                                val absolutePos = Offset(
+                                    cardPosition.x + down.position.x,
+                                    cardPosition.y + down.position.y
+                                )
+                                onDragStart(absolutePos)
+                            }
+                            changes.forEach { it.consume() }
+                            val absoluteCurrentPos = Offset(
+                                cardPosition.x + currentPos.x,
+                                cardPosition.y + currentPos.y
+                            )
+                            onDrag(absoluteCurrentPos)
+                        }
+
+                        if (!changes.any { it.pressed }) {
+                            if (dragStarted) {
+                                onDragEnd()
+                            } else if (!hasMoved) {
+                                onClick()
+                            }
+                            break
+                        }
+                    }
+                }
+            }
             .padding(if (isDragTarget) 4.dp else 0.dp),
         colors = CardDefaults.cardColors(containerColor = backgroundColor),
         elevation = CardDefaults.cardElevation(
