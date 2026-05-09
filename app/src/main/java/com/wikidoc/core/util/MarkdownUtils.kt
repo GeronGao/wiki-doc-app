@@ -28,10 +28,8 @@ object MarkdownUtils {
     private fun wrapWithHtmlTemplate(body: String): String {
         val processedBody = body
             .replace("<pre><code class=\"language-mermaid\">", "<div class=\"mermaid\">")
-            .replace("</code></pre>", "</div>")
             .replace("<pre><code class=\"mermaid\">", "<div class=\"mermaid\">")
-            .replace("&lt;div class=\"mermaid\"&gt;", "<div class=\"mermaid\">")
-            .replace("&lt;/div&gt;", "</div>")
+            .let { convertMermaidEndTags(it) }
 
         return """
             <!DOCTYPE html>
@@ -224,6 +222,27 @@ object MarkdownUtils {
             height: auto;
         }
     """.trimIndent()
+
+    private fun fixMermaidClosingTags(html: String): String {
+        return html
+    }
+    
+    private fun convertMermaidEndTags(html: String): String {
+        val regex = """(<div class="mermaid">[\s\S]*?)</code></pre>""".toRegex()
+        return regex.replace(html, "$1</div>")
+    }
+    
+    private fun fixCodeBlocks(html: String): String {
+        val openCode = "<pre><code".toRegex().findAll(html).count()
+        val closeCode = "</code></pre>".toRegex().findAll(html).count()
+        
+        if (openCode > closeCode) {
+            val diff = openCode - closeCode
+            return html + "</code></pre>".repeat(diff)
+        }
+        
+        return html
+    }
 
     fun insertMarkdownSyntax(
         text: String,

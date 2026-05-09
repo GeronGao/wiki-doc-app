@@ -26,7 +26,7 @@ data class EditorUiState(
     val tags: List<String> = emptyList(),
     val isFavorite: Boolean = false,
     val isSaved: Boolean = true,
-    val editorMode: EditorMode = EditorMode.SPLIT,
+    val editorMode: EditorMode = EditorMode.PREVIEW,
     val showSaveDialog: Boolean = false,
     val showTagDialog: Boolean = false,
     val showDeleteDialog: Boolean = false,

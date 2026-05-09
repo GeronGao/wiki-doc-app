@@ -1,7 +1,6 @@
 package com.wikidoc.presentation.component
 
 import android.webkit.WebView
-import android.webkit.WebViewClient
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
@@ -25,7 +24,6 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
-import androidx.webkit.WebViewCompat
 import com.wikidoc.core.util.MarkdownSyntax
 import com.wikidoc.core.util.MarkdownUtils
 
@@ -76,7 +74,6 @@ fun MarkdownEditor(
         Row(
             modifier = Modifier
                 .fillMaxSize()
-                .weight(1f)
         ) {
             if (editorMode != EditorMode.PREVIEW) {
                 TitleAndContentEditor(
@@ -484,6 +481,8 @@ fun MarkdownWebPreview(
     html: String,
     modifier: Modifier = Modifier
 ) {
+    var currentZoom by remember { mutableFloatStateOf(0.5f) }
+
     Column(
         modifier = modifier
             .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
@@ -493,20 +492,72 @@ fun MarkdownWebPreview(
                 .fillMaxWidth()
                 .background(MaterialTheme.colorScheme.surfaceVariant)
                 .padding(horizontal = 16.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Icon(
-                imageVector = Icons.Default.Visibility,
-                contentDescription = null,
-                modifier = Modifier.size(20.dp),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(
-                text = "预览",
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Visibility,
+                    contentDescription = null,
+                    modifier = Modifier.size(20.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "预览",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(
+                    onClick = { if (currentZoom > 0.5f) currentZoom -= 0.25f },
+                    modifier = Modifier.size(32.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.ZoomOut,
+                        contentDescription = "缩小",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+
+                Text(
+                    text = "${(currentZoom * 100).toInt()}%",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 4.dp)
+                )
+
+                IconButton(
+                    onClick = { if (currentZoom < 3.0f) currentZoom += 0.25f },
+                    modifier = Modifier.size(32.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.ZoomIn,
+                        contentDescription = "放大",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+
+                IconButton(
+                    onClick = { currentZoom = 1.0f },
+                    modifier = Modifier.size(32.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Refresh,
+                        contentDescription = "重置",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+            }
         }
 
         AndroidView(
@@ -519,20 +570,43 @@ fun MarkdownWebPreview(
                         useWideViewPort = true
                         builtInZoomControls = true
                         displayZoomControls = false
+                        setSupportZoom(true)
+                        layoutAlgorithm = android.webkit.WebSettings.LayoutAlgorithm.NORMAL
                     }
-                    webViewClient = WebViewClient()
                 }
             },
             update = { webView ->
+                val zoom = currentZoom
+                val scaledHtml = """
+                    <!DOCTYPE html>
+                    <html>
+                    <head>
+                        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
+                        <style>
+                            html, body {
+                                margin: 0;
+                                padding: 0;
+                                width: 100%;
+                            }
+                            body {
+                                zoom: $zoom;
+                            }
+                        </style>
+                    </head>
+                    <body>$html</body>
+                    </html>
+                """.trimIndent()
                 webView.loadDataWithBaseURL(
                     null,
-                    html,
+                    scaledHtml,
                     "text/html",
                     "UTF-8",
                     null
                 )
             },
-            modifier = Modifier.fillMaxSize()
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f)
         )
     }
 }
