@@ -12,6 +12,7 @@ sealed class Screen(val route: String) {
         fun createRoute(folderId: Long? = null) = "folder/${folderId ?: -1}"
     }
     data object SmbImport : Screen("smb_import")
+    data object LocalImport : Screen("local_import")
     data object Export : Screen("export")
     data object Favorites : Screen("favorites")
 }

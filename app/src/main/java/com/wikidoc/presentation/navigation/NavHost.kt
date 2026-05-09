@@ -176,6 +176,7 @@ fun WikiDocNavHost(
             composable(Screen.Settings.route) {
                 SettingsScreen(
                     onNavigateToSmbImport = { navController.navigate(Screen.SmbImport.route) },
+                    onNavigateToLocalImport = { navController.navigate(Screen.LocalImport.route) },
                     onNavigateToExport = { navController.navigate(Screen.Export.route) }
                 )
             }
@@ -199,6 +200,13 @@ fun WikiDocNavHost(
 
             composable(Screen.SmbImport.route) {
                 com.wikidoc.presentation.import_export.SmbImportScreen(
+                    onNavigateBack = { navController.popBackStack() },
+                    onImportComplete = { navController.popBackStack() }
+                )
+            }
+
+            composable(Screen.LocalImport.route) {
+                com.wikidoc.presentation.import_export.LocalImportScreen(
                     onNavigateBack = { navController.popBackStack() },
                     onImportComplete = { navController.popBackStack() }
                 )

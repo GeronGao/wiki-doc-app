@@ -252,6 +252,14 @@ class ExternalDataStore @Inject constructor(
 
     fun getDataDirectoryPath(): String = getDataDirectory().absolutePath
 
+    suspend fun clearAllData() = withContext(Dispatchers.IO) {
+        dataStore = WikiDataStore()
+        _documents.value = emptyList()
+        _folders.value = emptyList()
+        _images.value = emptyList()
+        save()
+    }
+
     private fun ExternalDocument.toEntity() = DocumentEntity(
         id = id,
         title = title,

@@ -17,12 +17,14 @@ import androidx.hilt.navigation.compose.hiltViewModel
 @Composable
 fun SettingsScreen(
     onNavigateToSmbImport: () -> Unit,
+    onNavigateToLocalImport: () -> Unit,
     onNavigateToExport: () -> Unit,
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
     var showFontSizeDialog by remember { mutableStateOf(false) }
     var showThemeDialog by remember { mutableStateOf(false) }
+    var showClearDataDialog by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -77,10 +79,22 @@ fun SettingsScreen(
                     onClick = onNavigateToSmbImport
                 )
                 SettingsItem(
+                    title = "本地导入",
+                    subtitle = "从手机存储导入ZIP或MD文件",
+                    icon = Icons.Default.PhoneAndroid,
+                    onClick = onNavigateToLocalImport
+                )
+                SettingsItem(
                     title = "清理缓存",
                     subtitle = "清理预览缓存和临时文件",
                     icon = Icons.Default.DeleteSweep,
                     onClick = { }
+                )
+                SettingsItem(
+                    title = "一键清理",
+                    subtitle = "删除所有文档和文件夹",
+                    icon = Icons.Default.DeleteForever,
+                    onClick = { showClearDataDialog = true }
                 )
             }
 
@@ -181,6 +195,45 @@ fun SettingsScreen(
             },
             confirmButton = {
                 TextButton(onClick = { showThemeDialog = false }) {
+                    Text("取消")
+                }
+            }
+        )
+    }
+
+    if (showClearDataDialog) {
+        AlertDialog(
+            onDismissRequest = { showClearDataDialog = false },
+            title = { Text("确认清理") },
+            text = {
+                Column {
+                    Text(
+                        text = "确定要删除所有数据吗？",
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "此操作将删除所有文档、文件夹和图片，且无法恢复。",
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.clearAllData()
+                        showClearDataDialog = false
+                    },
+                    colors = ButtonDefaults.textButtonColors(
+                        contentColor = MaterialTheme.colorScheme.error
+                    )
+                ) {
+                    Text("确认删除")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showClearDataDialog = false }) {
                     Text("取消")
                 }
             }
