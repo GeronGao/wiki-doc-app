@@ -18,6 +18,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
@@ -46,11 +47,19 @@ import java.util.*
 import kotlin.math.roundToInt
 
 data class FolderDragState(
+    val draggingType: FolderDragType = FolderDragType.None,
     val documentId: Long = -1,
+    val folderId: Long = -1,
     val isDragging: Boolean = false,
     val position: Offset = Offset.Zero,
     val isOverPortal: Boolean = false
 )
+
+sealed class FolderDragType {
+    data object None : FolderDragType()
+    data object Document : FolderDragType()
+    data object Folder : FolderDragType()
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -139,7 +148,9 @@ fun FolderScreen(
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     items(uiState.childFolders, key = { "folder_${it.id}" }) { folder ->
+                        val isDraggingThis = dragState.folderId == folder.id && dragState.draggingType == FolderDragType.Folder
                         val isTargeted = dragState.isDragging &&
+                                dragState.draggingType == FolderDragType.Document &&
                                 subFolderPositions[folder.id]?.let { (topLeft, bottomRight) ->
                                     dragState.position.x >= topLeft.x &&
                                             dragState.position.x <= bottomRight.x &&
@@ -150,15 +161,45 @@ fun FolderScreen(
                         FolderTreeItem(
                             folder = folder,
                             onClick = {
-                                if (dragState.isDragging && isTargeted) {
+                                if (dragState.isDragging && isTargeted && dragState.draggingType == FolderDragType.Document) {
                                     viewModel.moveDocumentToFolder(dragState.documentId, folder.id)
                                     dragState = FolderDragState()
-                                } else {
+                                } else if (!dragState.isDragging) {
                                     onFolderClick(folder.id)
                                 }
                             },
                             onMenuClick = { showMenu = folder.id },
                             isDragTarget = isTargeted,
+                            isBeingDragged = isDraggingThis,
+                            onDragStart = { offset ->
+                                dragState = FolderDragState(draggingType = FolderDragType.Folder, folderId = folder.id, isDragging = true, position = offset)
+                            },
+                            onDrag = { offset ->
+                                val isOverPortal = offset.x < with(density) { 80.dp.toPx() }
+                                dragState = dragState.copy(position = offset, isOverPortal = isOverPortal)
+                            },
+                            onDragEnd = {
+                                val targetedFolder = subFolderPositions.entries.find { (id, bounds) ->
+                                    if (id == folder.id) return@find false
+                                    val (topLeft, bottomRight) = bounds
+                                    dragState.position.x >= topLeft.x &&
+                                            dragState.position.x <= bottomRight.x &&
+                                            dragState.position.y >= topLeft.y &&
+                                            dragState.position.y <= bottomRight.y
+                                }
+                                when {
+                                    dragState.isOverPortal && folderId != 0L -> {
+                                        viewModel.moveSubFolderToParent(folder.id)
+                                    }
+                                    targetedFolder != null -> {
+                                        viewModel.moveSubFolderToFolder(folder.id, targetedFolder.key)
+                                    }
+                                }
+                                dragState = FolderDragState()
+                            },
+                            onDragCancel = {
+                                dragState = FolderDragState()
+                            },
                             onPositioned = { topLeft, bottomRight ->
                                 subFolderPositions = subFolderPositions + (folder.id to (topLeft to bottomRight))
                             }
@@ -166,15 +207,16 @@ fun FolderScreen(
                     }
 
                     items(uiState.documents, key = { "doc_${it.id}" }) { document ->
-                        val isDragging = dragState.documentId == document.id
+                        val isDraggingThis = dragState.documentId == document.id && dragState.draggingType == FolderDragType.Document && dragState.isDragging
                         DocumentTreeItemFolder(
                             document = document,
+                            isBeingDragged = isDraggingThis,
                             onClick = {
                                 if (!dragState.isDragging) onDocumentClick(document.id)
                             },
                             onLongClick = { viewModel.toggleFavorite(document) },
                             onDragStart = { offset ->
-                                dragState = FolderDragState(documentId = document.id, isDragging = true, position = offset)
+                                dragState = FolderDragState(draggingType = FolderDragType.Document, documentId = document.id, isDragging = true, position = offset)
                             },
                             onDrag = { offset ->
                                 val isOverPortal = offset.x < with(density) { 80.dp.toPx() }
@@ -213,7 +255,6 @@ fun FolderScreen(
             }
 
             if (dragState.isDragging) {
-                val draggingDoc = uiState.documents.find { it.id == dragState.documentId }
                 val isOverPortal = dragState.isOverPortal
 
                 if (isOverPortal) {
@@ -227,59 +268,122 @@ fun FolderScreen(
                     }
                 }
 
-                draggingDoc?.let { doc ->
-                    Box(
-                        modifier = Modifier
-                            .offset {
-                                IntOffset(
-                                    (dragState.position.x - 100.dp.toPx()).roundToInt(),
-                                    (dragState.position.y - 30.dp.toPx()).roundToInt()
-                                )
-                            }
-                            .size(width = 200.dp, height = 60.dp)
-                            .shadow(if (isOverPortal) 20.dp else 12.dp, RoundedCornerShape(16.dp))
-                    ) {
-                        Card(
-                            colors = CardDefaults.cardColors(
-                                containerColor = if (isOverPortal) Primary.copy(alpha = 0.9f) else Surface
-                            ),
-                            shape = RoundedCornerShape(16.dp)
-                        ) {
-                            Row(
+                when (dragState.draggingType) {
+                    FolderDragType.Document -> {
+                        val draggingDoc = uiState.documents.find { it.id == dragState.documentId }
+                        draggingDoc?.let { doc ->
+                            Box(
                                 modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(12.dp),
-                                verticalAlignment = Alignment.CenterVertically
+                                    .offset {
+                                        IntOffset(
+                                            (dragState.position.x - 100.dp.toPx()).roundToInt(),
+                                            (dragState.position.y - 30.dp.toPx()).roundToInt()
+                                        )
+                                    }
+                                    .size(width = 200.dp, height = 60.dp)
+                                    .shadow(if (isOverPortal) 20.dp else 12.dp, RoundedCornerShape(16.dp))
                             ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(36.dp)
-                                        .clip(RoundedCornerShape(8.dp))
-                                        .background(
-                                            if (isOverPortal) Color.White.copy(alpha = 0.3f)
-                                            else DocumentIconColor.copy(alpha = 0.1f)
-                                        ),
-                                    contentAlignment = Alignment.Center
+                                Card(
+                                    colors = CardDefaults.cardColors(
+                                        containerColor = if (isOverPortal) Primary.copy(alpha = 0.9f) else Surface
+                                    ),
+                                    shape = RoundedCornerShape(16.dp)
                                 ) {
-                                    Icon(
-                                        imageVector = if (isOverPortal) Icons.Default.ExitToApp else Icons.Default.Article,
-                                        contentDescription = null,
-                                        tint = if (isOverPortal) Color.White else DocumentIconColor,
-                                        modifier = Modifier.size(20.dp)
-                                    )
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(12.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(36.dp)
+                                                .clip(RoundedCornerShape(8.dp))
+                                                .background(
+                                                    if (isOverPortal) Color.White.copy(alpha = 0.3f)
+                                                    else DocumentIconColor.copy(alpha = 0.1f)
+                                                ),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Icon(
+                                                imageVector = if (isOverPortal) Icons.Default.ExitToApp else Icons.Default.Article,
+                                                contentDescription = null,
+                                                tint = if (isOverPortal) Color.White else DocumentIconColor,
+                                                modifier = Modifier.size(20.dp)
+                                            )
+                                        }
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text(
+                                            text = if (isOverPortal) "移出文件夹" else doc.title.ifBlank { "无标题" },
+                                            fontSize = 14.sp,
+                                            fontWeight = FontWeight.Medium,
+                                            color = if (isOverPortal) Color.White else OnSurface,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    }
                                 }
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(
-                                    text = if (isOverPortal) "移出文件夹" else doc.title.ifBlank { "无标题" },
-                                    fontSize = 14.sp,
-                                    fontWeight = FontWeight.Medium,
-                                    color = if (isOverPortal) Color.White else OnSurface,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
                             }
                         }
                     }
+                    FolderDragType.Folder -> {
+                        val draggingFolder = uiState.childFolders.find { it.id == dragState.folderId }
+                        draggingFolder?.let { folder ->
+                            Box(
+                                modifier = Modifier
+                                    .offset {
+                                        IntOffset(
+                                            (dragState.position.x - 100.dp.toPx()).roundToInt(),
+                                            (dragState.position.y - 30.dp.toPx()).roundToInt()
+                                        )
+                                    }
+                                    .size(width = 200.dp, height = 60.dp)
+                                    .shadow(if (isOverPortal) 20.dp else 12.dp, RoundedCornerShape(16.dp))
+                            ) {
+                                Card(
+                                    colors = CardDefaults.cardColors(
+                                        containerColor = if (isOverPortal) Primary.copy(alpha = 0.9f) else Surface
+                                    ),
+                                    shape = RoundedCornerShape(16.dp)
+                                ) {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(12.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(36.dp)
+                                                .clip(RoundedCornerShape(8.dp))
+                                                .background(
+                                                    if (isOverPortal) Color.White.copy(alpha = 0.3f)
+                                                    else FolderIconColor.copy(alpha = 0.15f)
+                                                ),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Icon(
+                                                imageVector = if (isOverPortal) Icons.Default.ExitToApp else Icons.Default.Folder,
+                                                contentDescription = null,
+                                                tint = if (isOverPortal) Color.White else FolderIconColor,
+                                                modifier = Modifier.size(20.dp)
+                                            )
+                                        }
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text(
+                                            text = if (isOverPortal) "移出文件夹" else folder.name,
+                                            fontSize = 14.sp,
+                                            fontWeight = FontWeight.Medium,
+                                            color = if (isOverPortal) Color.White else OnSurface,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    FolderDragType.None -> {}
                 }
             }
         }
@@ -303,25 +407,82 @@ fun FolderTreeItem(
     onClick: () -> Unit,
     onMenuClick: () -> Unit,
     isDragTarget: Boolean = false,
+    isBeingDragged: Boolean = false,
+    onDragStart: (Offset) -> Unit = {},
+    onDrag: (Offset) -> Unit = {},
+    onDragEnd: () -> Unit = {},
+    onDragCancel: () -> Unit = {},
     onPositioned: (Offset, Offset) -> Unit = { _, _ -> }
 ) {
+    var cardPosition by remember { mutableStateOf(Offset.Zero) }
     val backgroundColor = if (isDragTarget) Primary.copy(alpha = 0.1f) else MaterialTheme.colorScheme.surface
 
     Card(
         modifier = Modifier
             .fillMaxWidth()
+            .alpha(if (isBeingDragged) 0.3f else 1f)
             .onGloballyPositioned { coordinates ->
-                val position = coordinates.positionInRoot()
+                cardPosition = coordinates.positionInRoot()
                 val size = coordinates.size
                 onPositioned(
-                    position,
-                    Offset(position.x + size.width, position.y + size.height)
+                    cardPosition,
+                    Offset(cardPosition.x + size.width, cardPosition.y + size.height)
                 )
             }
-            .combinedClickable(
-                onClick = onClick,
-                onLongClick = onMenuClick
-            ),
+            .pointerInput(folder.id) {
+                val longPressTimeout = 500L
+                val moveThreshold = 30f
+                var hasMoved = false
+                var dragStarted = false
+
+                awaitEachGesture {
+                    val down = awaitFirstDown(requireUnconsumed = false)
+                    hasMoved = false
+                    dragStarted = false
+
+                    val gestureStartTime = System.currentTimeMillis()
+
+                    while (true) {
+                        val event = awaitPointerEvent()
+                        val changes = event.changes
+
+                        if (changes.isEmpty()) break
+
+                        val currentTime = System.currentTimeMillis()
+                        val elapsed = currentTime - gestureStartTime
+                        val firstChange = changes.first()
+                        val currentPos = firstChange.position
+                        val distance = (currentPos - down.position).getDistance()
+
+                        if (distance > moveThreshold) {
+                            hasMoved = true
+                            if (!dragStarted) {
+                                dragStarted = true
+                                val absolutePos = Offset(
+                                    cardPosition.x + down.position.x,
+                                    cardPosition.y + down.position.y
+                                )
+                                onDragStart(absolutePos)
+                            }
+                            changes.forEach { it.consume() }
+                            val absoluteCurrentPos = Offset(
+                                cardPosition.x + currentPos.x,
+                                cardPosition.y + currentPos.y
+                            )
+                            onDrag(absoluteCurrentPos)
+                        }
+
+                        if (!changes.any { it.pressed }) {
+                            if (dragStarted) {
+                                onDragEnd()
+                            } else if (!hasMoved) {
+                                onClick()
+                            }
+                            break
+                        }
+                    }
+                }
+            },
         colors = CardDefaults.cardColors(containerColor = backgroundColor),
         elevation = CardDefaults.cardElevation(defaultElevation = if (isDragTarget) 4.dp else 0.dp),
         shape = RoundedCornerShape(12.dp),
@@ -378,6 +539,7 @@ fun FolderTreeItem(
 @Composable
 fun DocumentTreeItemFolder(
     document: Document,
+    isBeingDragged: Boolean = false,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
     onDragStart: (Offset) -> Unit = {},
@@ -390,6 +552,7 @@ fun DocumentTreeItemFolder(
     Card(
         modifier = Modifier
             .fillMaxWidth()
+            .alpha(if (isBeingDragged) 0.3f else 1f)
             .onGloballyPositioned { coordinates ->
                 cardPosition = coordinates.positionInRoot()
             }

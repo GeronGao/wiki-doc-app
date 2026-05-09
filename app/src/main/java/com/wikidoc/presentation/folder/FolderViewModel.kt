@@ -131,4 +131,26 @@ class FolderViewModel @Inject constructor(
             }
         }
     }
+
+    fun moveSubFolderToParent(subFolderId: Long) {
+        viewModelScope.launch {
+            val subFolder = folderRepository.getFolderById(subFolderId)
+            if (subFolder != null && folderId > 0) {
+                val currentFolder = folderRepository.getFolderById(folderId)
+                val parentFolderId = currentFolder?.parentId
+                val updated = subFolder.copy(parentId = parentFolderId)
+                folderRepository.updateFolder(updated)
+            }
+        }
+    }
+
+    fun moveSubFolderToFolder(subFolderId: Long, targetFolderId: Long) {
+        viewModelScope.launch {
+            val subFolder = folderRepository.getFolderById(subFolderId)
+            if (subFolder != null) {
+                val updated = subFolder.copy(parentId = targetFolderId)
+                folderRepository.updateFolder(updated)
+            }
+        }
+    }
 }
