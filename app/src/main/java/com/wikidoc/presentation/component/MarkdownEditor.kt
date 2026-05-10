@@ -64,12 +64,14 @@ fun MarkdownEditor(
     Column(
         modifier = modifier.fillMaxSize()
     ) {
-        EditorToolbarWithMode(
-            editorMode = editorMode,
-            textFieldValue = textFieldValue,
-            onModeChange = onModeChange,
-            onTextChange = { textFieldValue = it }
-        )
+        if (editorMode != EditorMode.PREVIEW) {
+            EditorToolbarWithMode(
+                editorMode = editorMode,
+                textFieldValue = textFieldValue,
+                onModeChange = onModeChange,
+                onTextChange = { textFieldValue = it }
+            )
+        }
 
         Row(
             modifier = Modifier
@@ -90,6 +92,8 @@ fun MarkdownEditor(
             if (editorMode != EditorMode.EDIT) {
                 MarkdownWebPreview(
                     html = previewHtml.value,
+                    editorMode = editorMode,
+                    onModeChange = onModeChange,
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxHeight()
@@ -479,9 +483,12 @@ fun TitleAndContentEditor(
 @Composable
 fun MarkdownWebPreview(
     html: String,
+    editorMode: EditorMode,
+    onModeChange: (EditorMode) -> Unit,
     modifier: Modifier = Modifier
 ) {
     var currentZoom by remember { mutableFloatStateOf(0.5f) }
+    var showModeMenu by remember { mutableStateOf(false) }
 
     Column(
         modifier = modifier
@@ -515,6 +522,60 @@ fun MarkdownWebPreview(
             Row(
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                Box {
+                    IconButton(
+                        onClick = { showModeMenu = true },
+                        modifier = Modifier.size(32.dp)
+                    ) {
+                        Icon(
+                            imageVector = when (editorMode) {
+                                EditorMode.EDIT -> Icons.Default.Edit
+                                EditorMode.PREVIEW -> Icons.Default.Visibility
+                                EditorMode.SPLIT -> Icons.Default.VerticalSplit
+                            },
+                            contentDescription = "编辑模式",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+
+                    DropdownMenu(
+                        expanded = showModeMenu,
+                        onDismissRequest = { showModeMenu = false }
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("编辑模式") },
+                            onClick = {
+                                onModeChange(EditorMode.EDIT)
+                                showModeMenu = false
+                            },
+                            leadingIcon = {
+                                Icon(Icons.Default.Edit, contentDescription = null)
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("预览模式") },
+                            onClick = {
+                                onModeChange(EditorMode.PREVIEW)
+                                showModeMenu = false
+                            },
+                            leadingIcon = {
+                                Icon(Icons.Default.Visibility, contentDescription = null)
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("分屏模式") },
+                            onClick = {
+                                onModeChange(EditorMode.SPLIT)
+                                showModeMenu = false
+                            },
+                            leadingIcon = {
+                                Icon(Icons.Default.VerticalSplit, contentDescription = null)
+                            }
+                        )
+                    }
+                }
+
                 IconButton(
                     onClick = { if (currentZoom > 0.5f) currentZoom -= 0.25f },
                     modifier = Modifier.size(32.dp)
