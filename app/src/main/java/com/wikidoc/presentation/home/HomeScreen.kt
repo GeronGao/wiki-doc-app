@@ -538,10 +538,14 @@ fun FolderCard(
                 var dragStarted = false
 
                 awaitEachGesture {
+                    val down = awaitFirstDown(requireUnconsumed = false)
+                    
                     if (showActions) {
+                        down.consume()
+                        showActions = false
                         return@awaitEachGesture
                     }
-                    val down = awaitFirstDown(requireUnconsumed = false)
+                    
                     hasMoved = false
                     longPressTriggered = false
                     dragStarted = false
@@ -726,10 +730,14 @@ fun DocumentCard(
                 var dragStarted = false
 
                 awaitEachGesture {
+                    val down = awaitFirstDown(requireUnconsumed = false)
+                    
                     if (showActions) {
+                        down.consume()
+                        showActions = false
                         return@awaitEachGesture
                     }
-                    val down = awaitFirstDown(requireUnconsumed = false)
+                    
                     hasMoved = false
                     longPressTriggered = false
                     dragStarted = false
