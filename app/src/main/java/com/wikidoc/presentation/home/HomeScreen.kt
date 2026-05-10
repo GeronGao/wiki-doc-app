@@ -209,7 +209,7 @@ fun HomeScreen(
                                     },
                                     isDragTarget = isTargeted,
                                     isBeingDragged = isDraggingThis,
-                                    onLongPress = {
+                                    onDelete = {
                                         selectedFolder = folder
                                         deleteTarget = DeleteTarget.Folder(folder.id, folder.name)
                                         showDeleteConfirm = true
@@ -506,7 +506,7 @@ fun FolderCard(
     onClick: () -> Unit,
     isDragTarget: Boolean = false,
     isBeingDragged: Boolean = false,
-    onLongPress: () -> Unit = {},
+    onDelete: () -> Unit = {},
     onDetail: () -> Unit = {},
     onDragStart: (Offset) -> Unit = {},
     onDrag: (Offset) -> Unit = {},
@@ -565,7 +565,6 @@ fun FolderCard(
                         if (elapsed >= longPressTimeout && !longPressTriggered) {
                             longPressTriggered = true
                             showActions = true
-                            onLongPress()
                         }
 
                         if (longPressTriggered && distance > moveThreshold && !dragStarted) {
@@ -666,7 +665,7 @@ fun FolderCard(
                     IconButton(
                         onClick = {
                             showActions = false
-                            onLongPress()
+                            onDelete()
                         },
                         modifier = Modifier.size(36.dp)
                     ) {
@@ -751,7 +750,6 @@ fun DocumentCard(
                         if (elapsed >= longPressTimeout && !longPressTriggered) {
                             longPressTriggered = true
                             showActions = true
-                            onFavorite()
                         }
 
                         if (longPressTriggered && distance > moveThreshold && !dragStarted) {

@@ -183,7 +183,7 @@ fun FolderScreen(
                             onMenuClick = { showMenu = folder.id },
                             isDragTarget = isTargeted,
                             isBeingDragged = isDraggingThis,
-                            onLongPress = {
+                            onDelete = {
                                 selectedFolder = folder
                                 deleteTarget = DeleteTarget.Folder(folder.id, folder.name)
                                 showDeleteConfirm = true
@@ -491,7 +491,7 @@ fun FolderTreeItem(
     onMenuClick: () -> Unit,
     isDragTarget: Boolean = false,
     isBeingDragged: Boolean = false,
-    onLongPress: () -> Unit = {},
+    onDelete: () -> Unit = {},
     onDetail: () -> Unit = {},
     onDragStart: (Offset) -> Unit = {},
     onDrag: (Offset) -> Unit = {},
@@ -550,7 +550,6 @@ fun FolderTreeItem(
                         if (elapsed >= longPressTimeout && !longPressTriggered) {
                             longPressTriggered = true
                             showActions = true
-                            onLongPress()
                         }
 
                         if (longPressTriggered && distance > moveThreshold && !dragStarted) {
@@ -641,7 +640,7 @@ fun FolderTreeItem(
                     }
                     IconButton(onClick = {
                         showActions = false
-                        onLongPress()
+                        onDelete()
                     }) {
                         Icon(
                             imageVector = Icons.Default.Delete,
@@ -721,7 +720,6 @@ fun DocumentTreeItemFolder(
                         if (elapsed >= longPressTimeout && !longPressTriggered) {
                             longPressTriggered = true
                             showActions = true
-                            onFavorite()
                         }
 
                         if (longPressTriggered && distance > moveThreshold && !dragStarted) {
