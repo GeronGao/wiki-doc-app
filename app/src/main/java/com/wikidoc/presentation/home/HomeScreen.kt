@@ -541,7 +541,6 @@ fun FolderCard(
                     val down = awaitFirstDown(requireUnconsumed = false)
                     
                     if (showActions) {
-                        down.consume()
                         showActions = false
                         return@awaitEachGesture
                     }
@@ -733,7 +732,6 @@ fun DocumentCard(
                     val down = awaitFirstDown(requireUnconsumed = false)
                     
                     if (showActions) {
-                        down.consume()
                         showActions = false
                         return@awaitEachGesture
                     }

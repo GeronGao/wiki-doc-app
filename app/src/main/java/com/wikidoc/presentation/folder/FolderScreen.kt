@@ -526,7 +526,6 @@ fun FolderTreeItem(
                     val down = awaitFirstDown(requireUnconsumed = false)
                     
                     if (showActions) {
-                        down.consume()
                         showActions = false
                         return@awaitEachGesture
                     }
@@ -703,7 +702,6 @@ fun DocumentTreeItemFolder(
                     val down = awaitFirstDown(requireUnconsumed = false)
                     
                     if (showActions) {
-                        down.consume()
                         showActions = false
                         return@awaitEachGesture
                     }
