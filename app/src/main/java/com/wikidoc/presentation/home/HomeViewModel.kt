@@ -84,8 +84,7 @@ class HomeViewModel @Inject constructor(
 
     fun toggleFavorite(document: Document) {
         viewModelScope.launch {
-            val updated = document.copy(isFavorite = !document.isFavorite)
-            documentRepository.updateDocument(updated)
+            documentRepository.updateDocument(document)
         }
     }
 
