@@ -650,7 +650,13 @@ fun MarkdownWebPreview(
                                 width: 100%;
                             }
                             body {
-                                zoom: $zoom;
+                                transform: scale($zoom);
+                                transform-origin: top left;
+                                width: ${100 / zoom}%;
+                            }
+                            .mermaid svg {
+                                transform: scale(${1 / zoom});
+                                transform-origin: top center;
                             }
                         </style>
                     </head>
