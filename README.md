@@ -45,7 +45,7 @@ WikiDoc is a powerful local Wiki document management application for Android. It
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/yourusername/wikidoc.git
+git clone https://github.com/GeronGao/wiki-doc-app.git
 cd wikidoc
 ```
 
@@ -226,4 +226,4 @@ adb install app/build/outputs/apk/debug/app-debug.apk
 
 ## Star History
 
-[![Star History Chart](https://api.star-history.com/svg?repos=yourusername/wikidoc&type=Date)](https://star-history.com/#yourusername/wikidoc&Date)
+[![Star History Chart](https://api.star-history.com/svg?repos=GeronGao/wiki-doc-app&type=Date)](https://star-history.com/#GeronGao/wiki-doc-app&Date)
