@@ -33,6 +33,9 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import kotlinx.coroutines.MainScope
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
@@ -413,11 +416,17 @@ fun HomeScreen(
                 document = selectedDocument!!,
                 onDismiss = { showDocumentDetail = false },
                 onFavorite = {
+                    val docId = selectedDocument!!.id
                     viewModel.toggleFavorite(selectedDocument!!)
-                    val updated = uiState.recentDocuments.find { it.id == selectedDocument!!.id }
-                        ?: uiState.favoriteDocuments.find { it.id == selectedDocument!!.id }
+                    val updated = uiState.recentDocuments.find { it.id == docId }
+                        ?: uiState.favoriteDocuments.find { it.id == docId }
+                    showDocumentDetail = false
                     if (updated != null) {
                         selectedDocument = updated
+                    }
+                    kotlinx.coroutines.MainScope().launch {
+                        kotlinx.coroutines.delay(100)
+                        showDocumentDetail = updated != null
                     }
                 },
                 onDelete = {

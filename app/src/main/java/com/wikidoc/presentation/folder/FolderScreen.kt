@@ -10,6 +10,9 @@ import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
+import kotlinx.coroutines.MainScope
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -438,10 +441,16 @@ fun FolderScreen(
             document = selectedDocument!!,
             onDismiss = { showDocumentDetail = false },
             onFavorite = {
+                val docId = selectedDocument!!.id
                 viewModel.toggleFavorite(selectedDocument!!)
-                val updated = uiState.documents.find { it.id == selectedDocument!!.id }
+                val updated = uiState.documents.find { it.id == docId }
+                showDocumentDetail = false
                 if (updated != null) {
                     selectedDocument = updated
+                }
+                kotlinx.coroutines.MainScope().launch {
+                    kotlinx.coroutines.delay(100)
+                    showDocumentDetail = updated != null
                 }
             },
             onDelete = {
