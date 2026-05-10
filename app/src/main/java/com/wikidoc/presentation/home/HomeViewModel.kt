@@ -105,4 +105,16 @@ class HomeViewModel @Inject constructor(
             hideCreateDocumentDialog()
         }
     }
+
+    fun deleteDocument(documentId: Long) {
+        viewModelScope.launch {
+            documentRepository.deleteDocument(documentId)
+        }
+    }
+
+    fun deleteFolder(folderId: Long) {
+        viewModelScope.launch {
+            folderRepository.deleteFolder(folderId)
+        }
+    }
 }

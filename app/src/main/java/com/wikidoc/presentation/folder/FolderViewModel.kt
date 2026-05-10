@@ -149,8 +149,20 @@ class FolderViewModel @Inject constructor(
             val subFolder = folderRepository.getFolderById(subFolderId)
             if (subFolder != null) {
                 val updated = subFolder.copy(parentId = targetFolderId)
-                folderRepository.updateFolder(updated)
+                folderRepository.saveFolder(updated)
             }
+        }
+    }
+
+    fun deleteDocument(documentId: Long) {
+        viewModelScope.launch {
+            documentRepository.deleteDocument(documentId)
+        }
+    }
+
+    fun deleteFolder(folderId: Long) {
+        viewModelScope.launch {
+            folderRepository.deleteFolder(folderId)
         }
     }
 }

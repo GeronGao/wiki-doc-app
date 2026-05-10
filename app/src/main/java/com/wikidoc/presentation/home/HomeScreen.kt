@@ -20,11 +20,15 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.CreateNewFolder
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.FolderOpen
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.StarBorder
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -70,6 +74,11 @@ sealed class HomeItem {
     data class DocumentItem(val document: Document) : HomeItem()
 }
 
+sealed class DeleteTarget {
+    data class Document(val id: Long, val title: String) : DeleteTarget()
+    data class Folder(val id: Long, val name: String) : DeleteTarget()
+}
+
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun HomeScreen(
@@ -85,6 +94,13 @@ fun HomeScreen(
 
     var dragState by remember { mutableStateOf(DragState()) }
     var folderPositions by remember { mutableStateOf(mapOf<Long, Pair<Offset, Offset>>()) }
+
+    var selectedDocument by remember { mutableStateOf<Document?>(null) }
+    var selectedFolder by remember { mutableStateOf<Folder?>(null) }
+    var showDocumentDetail by remember { mutableStateOf(false) }
+    var showFolderDetail by remember { mutableStateOf(false) }
+    var showDeleteConfirm by remember { mutableStateOf(false) }
+    var deleteTarget by remember { mutableStateOf<DeleteTarget?>(null) }
 
     fun isOverFolder(folderId: Long): Boolean {
         if (!dragState.isDragging) return false
@@ -193,6 +209,15 @@ fun HomeScreen(
                                     },
                                     isDragTarget = isTargeted,
                                     isBeingDragged = isDraggingThis,
+                                    onLongPress = {
+                                        selectedFolder = folder
+                                        deleteTarget = DeleteTarget.Folder(folder.id, folder.name)
+                                        showDeleteConfirm = true
+                                    },
+                                    onDetail = {
+                                        selectedFolder = folder
+                                        showFolderDetail = true
+                                    },
                                     onDragStart = { offset ->
                                         dragState = DragState(draggingType = DragType.Folder, folderId = folder.id, isDragging = true, position = offset)
                                     },
@@ -229,8 +254,17 @@ fun HomeScreen(
                                 DocumentCard(
                                     document = document,
                                     isBeingDragged = isDraggingThis,
-                                    onClick = { onDocumentClick(document.id) },
-                                    onLongClick = { viewModel.toggleFavorite(document) },
+                                    onClick = { if (!dragState.isDragging) onDocumentClick(document.id) },
+                                    onFavorite = { viewModel.toggleFavorite(document) },
+                                    onDelete = {
+                                        selectedDocument = document
+                                        deleteTarget = DeleteTarget.Document(document.id, document.title)
+                                        showDeleteConfirm = true
+                                    },
+                                    onDetail = {
+                                        selectedDocument = document
+                                        showDocumentDetail = true
+                                    },
                                     onDragStart = { offset ->
                                         dragState = DragState(draggingType = DragType.Document, documentId = document.id, isDragging = true, position = offset)
                                     },
@@ -373,6 +407,58 @@ fun HomeScreen(
                 }
             }
         }
+
+        if (showDocumentDetail && selectedDocument != null) {
+            HomeDocumentDetailSheet(
+                document = selectedDocument!!,
+                onDismiss = { showDocumentDetail = false },
+                onFavorite = {
+                    viewModel.toggleFavorite(selectedDocument!!)
+                    val updated = uiState.recentDocuments.find { it.id == selectedDocument!!.id }
+                        ?: uiState.favoriteDocuments.find { it.id == selectedDocument!!.id }
+                    if (updated != null) {
+                        selectedDocument = updated
+                    }
+                },
+                onDelete = {
+                    showDocumentDetail = false
+                    deleteTarget = DeleteTarget.Document(selectedDocument!!.id, selectedDocument!!.title)
+                    showDeleteConfirm = true
+                },
+                onClose = { showDocumentDetail = false }
+            )
+        }
+
+        if (showFolderDetail && selectedFolder != null) {
+            HomeFolderDetailSheet(
+                folder = selectedFolder!!,
+                onDismiss = { showFolderDetail = false },
+                onDelete = {
+                    showFolderDetail = false
+                    deleteTarget = DeleteTarget.Folder(selectedFolder!!.id, selectedFolder!!.name)
+                    showDeleteConfirm = true
+                },
+                onClose = { showFolderDetail = false }
+            )
+        }
+
+        if (showDeleteConfirm && deleteTarget != null) {
+            HomeDeleteConfirmDialog(
+                target = deleteTarget!!,
+                onDismiss = {
+                    showDeleteConfirm = false
+                    deleteTarget = null
+                },
+                onConfirm = {
+                    when (val target = deleteTarget!!) {
+                        is DeleteTarget.Document -> viewModel.deleteDocument(target.id)
+                        is DeleteTarget.Folder -> viewModel.deleteFolder(target.id)
+                    }
+                    showDeleteConfirm = false
+                    deleteTarget = null
+                }
+            )
+        }
     }
 }
 
@@ -420,6 +506,8 @@ fun FolderCard(
     onClick: () -> Unit,
     isDragTarget: Boolean = false,
     isBeingDragged: Boolean = false,
+    onLongPress: () -> Unit = {},
+    onDetail: () -> Unit = {},
     onDragStart: (Offset) -> Unit = {},
     onDrag: (Offset) -> Unit = {},
     onDragEnd: () -> Unit = {},
@@ -427,6 +515,7 @@ fun FolderCard(
     onPositioned: (Offset, Offset) -> Unit = { _, _ -> }
 ) {
     var cardPosition by remember { mutableStateOf(Offset.Zero) }
+    var showActions by remember { mutableStateOf(false) }
     val backgroundColor = if (isDragTarget) Primary.copy(alpha = 0.1f) else Surface
 
     Card(
@@ -445,12 +534,15 @@ fun FolderCard(
                 val longPressTimeout = 1000L
                 val moveThreshold = 30f
                 var hasMoved = false
+                var longPressTriggered = false
                 var dragStarted = false
 
                 awaitEachGesture {
                     val down = awaitFirstDown(requireUnconsumed = false)
                     hasMoved = false
+                    longPressTriggered = false
                     dragStarted = false
+                    showActions = false
 
                     val gestureStartTime = System.currentTimeMillis()
 
@@ -470,8 +562,15 @@ fun FolderCard(
                             hasMoved = true
                         }
 
-                        if (elapsed >= longPressTimeout && !dragStarted) {
+                        if (elapsed >= longPressTimeout && !longPressTriggered) {
+                            longPressTriggered = true
+                            showActions = true
+                            onLongPress()
+                        }
+
+                        if (longPressTriggered && distance > moveThreshold && !dragStarted) {
                             dragStarted = true
+                            showActions = false
                             val absolutePos = Offset(
                                 cardPosition.x + down.position.x,
                                 cardPosition.y + down.position.y
@@ -491,9 +590,8 @@ fun FolderCard(
                         if (!changes.any { it.pressed }) {
                             if (dragStarted) {
                                 onDragEnd()
-                            } else if (!hasMoved) {
-                                onClick()
                             }
+                            showActions = false
                             break
                         }
                     }
@@ -547,11 +645,46 @@ fun FolderCard(
                 )
             }
 
-            Icon(
-                imageVector = Icons.Default.ChevronRight,
-                contentDescription = null,
-                tint = OnSurfaceVariant
-            )
+            if (showActions) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    IconButton(
+                        onClick = {
+                            showActions = false
+                            onDetail()
+                        },
+                        modifier = Modifier.size(36.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Info,
+                            contentDescription = "详情",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                    IconButton(
+                        onClick = {
+                            showActions = false
+                            onLongPress()
+                        },
+                        modifier = Modifier.size(36.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Delete,
+                            contentDescription = "删除",
+                            tint = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+            } else {
+                Icon(
+                    imageVector = Icons.Default.ChevronRight,
+                    contentDescription = null,
+                    tint = OnSurfaceVariant
+                )
+            }
         }
     }
 }
@@ -561,8 +694,10 @@ fun FolderCard(
 fun DocumentCard(
     document: Document,
     isBeingDragged: Boolean = false,
-    onClick: () -> Unit,
-    onLongClick: () -> Unit,
+    onClick: () -> Unit = {},
+    onFavorite: () -> Unit = {},
+    onDelete: () -> Unit = {},
+    onDetail: () -> Unit = {},
     onDragStart: (Offset) -> Unit = {},
     onDrag: (Offset) -> Unit = {},
     onDragEnd: () -> Unit = {},
@@ -570,6 +705,7 @@ fun DocumentCard(
     onPositioned: (Offset) -> Unit = {}
 ) {
     var cardPosition by remember { mutableStateOf(Offset.Zero) }
+    var showActions by remember { mutableStateOf(false) }
 
     Card(
         modifier = Modifier
@@ -583,12 +719,15 @@ fun DocumentCard(
                 val longPressTimeout = 1000L
                 val moveThreshold = 30f
                 var hasMoved = false
+                var longPressTriggered = false
                 var dragStarted = false
 
                 awaitEachGesture {
                     val down = awaitFirstDown(requireUnconsumed = false)
                     hasMoved = false
+                    longPressTriggered = false
                     dragStarted = false
+                    showActions = false
 
                     val gestureStartTime = System.currentTimeMillis()
                     val initialCardPos = cardPosition
@@ -609,8 +748,15 @@ fun DocumentCard(
                             hasMoved = true
                         }
 
-                        if (elapsed >= longPressTimeout && !dragStarted) {
+                        if (elapsed >= longPressTimeout && !longPressTriggered) {
+                            longPressTriggered = true
+                            showActions = true
+                            onFavorite()
+                        }
+
+                        if (longPressTriggered && distance > moveThreshold && !dragStarted) {
                             dragStarted = true
+                            showActions = false
                             val absolutePos = Offset(
                                 initialCardPos.x + down.position.x,
                                 initialCardPos.y + down.position.y
@@ -630,9 +776,8 @@ fun DocumentCard(
                         if (!changes.any { it.pressed }) {
                             if (dragStarted) {
                                 onDragEnd()
-                            } else if (!hasMoved) {
-                                onClick()
                             }
+                            showActions = false
                             break
                         }
                     }
@@ -734,12 +879,63 @@ fun DocumentCard(
                     fontSize = 12.sp,
                     color = OnSurfaceVariant
                 )
-                if (document.wordCount > 0) {
-                    Text(
-                        text = "${document.wordCount} 字",
-                        fontSize = 12.sp,
-                        color = OnSurfaceVariant
-                    )
+
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    if (document.wordCount > 0) {
+                        Text(
+                            text = "${document.wordCount} 字",
+                            fontSize = 12.sp,
+                            color = OnSurfaceVariant
+                        )
+                    }
+
+                    if (showActions) {
+                        IconButton(
+                            onClick = {
+                                showActions = false
+                                onFavorite()
+                            },
+                            modifier = Modifier.size(28.dp)
+                        ) {
+                            Icon(
+                                imageVector = if (document.isFavorite) Icons.Default.Star else Icons.Default.StarBorder,
+                                contentDescription = "收藏",
+                                tint = if (document.isFavorite) FavoriteColor else OnSurfaceVariant,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                        IconButton(
+                            onClick = {
+                                showActions = false
+                                onDetail()
+                            },
+                            modifier = Modifier.size(28.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Info,
+                                contentDescription = "详情",
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                        IconButton(
+                            onClick = {
+                                showActions = false
+                                onDelete()
+                            },
+                            modifier = Modifier.size(28.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Delete,
+                                contentDescription = "删除",
+                                tint = MaterialTheme.colorScheme.error,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -760,6 +956,237 @@ fun TagChip(tag: String) {
             modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
         )
     }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun HomeDocumentDetailSheet(
+    document: Document,
+    onDismiss: () -> Unit,
+    onFavorite: () -> Unit,
+    onDelete: () -> Unit,
+    onClose: () -> Unit
+) {
+    val dateFormat = remember { SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()) }
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(24.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "文档详情",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold
+                )
+                IconButton(onClick = onClose) {
+                    Icon(Icons.Default.Close, contentDescription = "关闭")
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Text(
+                text = document.title.ifBlank { "无标题" },
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Medium
+            )
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            HomeDetailRow(label = "创建时间", value = dateFormat.format(Date(document.createdAt)))
+            Spacer(modifier = Modifier.height(12.dp))
+            HomeDetailRow(label = "最近修改", value = dateFormat.format(Date(document.updatedAt)))
+            Spacer(modifier = Modifier.height(12.dp))
+            HomeDetailRow(label = "字符数", value = "${document.content.length}")
+            Spacer(modifier = Modifier.height(12.dp))
+            HomeDetailRow(label = "收藏状态", value = if (document.isFavorite) "已收藏" else "未收藏")
+
+            Spacer(modifier = Modifier.height(32.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                OutlinedButton(
+                    onClick = onFavorite,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Icon(
+                        imageVector = if (document.isFavorite) Icons.Default.Star else Icons.Default.StarBorder,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(if (document.isFavorite) "取消收藏" else "收藏")
+                }
+
+                Button(
+                    onClick = onDelete,
+                    modifier = Modifier.weight(1f),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error
+                    )
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Delete,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("删除")
+                }
+            }
+
+            Spacer(modifier = Modifier.height(32.dp))
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun HomeFolderDetailSheet(
+    folder: Folder,
+    onDismiss: () -> Unit,
+    onDelete: () -> Unit,
+    onClose: () -> Unit
+) {
+    val dateFormat = remember { SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()) }
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(24.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "文件夹详情",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold
+                )
+                IconButton(onClick = onClose) {
+                    Icon(Icons.Default.Close, contentDescription = "关闭")
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Text(
+                text = folder.name,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Medium
+            )
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            HomeDetailRow(label = "创建时间", value = dateFormat.format(Date(folder.createdAt)))
+            Spacer(modifier = Modifier.height(12.dp))
+            HomeDetailRow(label = "文档数量", value = "${folder.documentCount}")
+
+            Spacer(modifier = Modifier.height(32.dp))
+
+            Button(
+                onClick = onDelete,
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.error
+                )
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Delete,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("删除文件夹")
+            }
+
+            Spacer(modifier = Modifier.height(32.dp))
+        }
+    }
+}
+
+@Composable
+fun HomeDetailRow(label: String, value: String) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyMedium,
+            color = OnSurfaceVariant
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.Medium
+        )
+    }
+}
+
+@Composable
+fun HomeDeleteConfirmDialog(
+    target: DeleteTarget,
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit
+) {
+    val title = when (target) {
+        is DeleteTarget.Document -> "确定要删除文档「${target.title}」吗？"
+        is DeleteTarget.Folder -> "确定要删除文件夹「${target.name}」吗？"
+    }
+    val subtitle = when (target) {
+        is DeleteTarget.Document -> "删除后可以在回收站恢复"
+        is DeleteTarget.Folder -> "文件夹内的内容也会被删除"
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("确认删除") },
+        text = {
+            Column {
+                Text(title)
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = OnSurfaceVariant
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = onConfirm,
+                colors = ButtonDefaults.textButtonColors(
+                    contentColor = MaterialTheme.colorScheme.error
+                )
+            ) {
+                Text("删除")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("取消")
+            }
+        }
+    )
 }
 
 @Composable
