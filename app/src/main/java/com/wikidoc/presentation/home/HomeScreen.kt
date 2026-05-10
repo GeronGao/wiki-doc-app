@@ -589,10 +589,10 @@ fun FolderCard(
                         if (!changes.any { it.pressed }) {
                             if (dragStarted) {
                                 onDragEnd()
+                                showActions = false
                             } else if (!longPressTriggered) {
                                 onClick()
                             }
-                            showActions = false
                             break
                         }
                     }
@@ -776,10 +776,10 @@ fun DocumentCard(
                         if (!changes.any { it.pressed }) {
                             if (dragStarted) {
                                 onDragEnd()
+                                showActions = false
                             } else if (!longPressTriggered) {
                                 onClick()
                             }
-                            showActions = false
                             break
                         }
                     }
