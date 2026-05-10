@@ -574,6 +574,8 @@ fun FolderTreeItem(
                         if (!changes.any { it.pressed }) {
                             if (dragStarted) {
                                 onDragEnd()
+                            } else if (!longPressTriggered) {
+                                onClick()
                             }
                             showActions = false
                             break
@@ -744,6 +746,8 @@ fun DocumentTreeItemFolder(
                         if (!changes.any { it.pressed }) {
                             if (dragStarted) {
                                 onDragEnd()
+                            } else if (!longPressTriggered) {
+                                onClick()
                             }
                             showActions = false
                             break
