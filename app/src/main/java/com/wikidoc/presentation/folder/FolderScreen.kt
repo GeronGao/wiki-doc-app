@@ -441,8 +441,13 @@ fun FolderScreen(
             document = selectedDocument!!,
             onDismiss = { showDocumentDetail = false },
             onFavorite = {
+                val docId = selectedDocument!!.id
                 selectedDocument = selectedDocument!!.copy(isFavorite = !selectedDocument!!.isFavorite)
                 viewModel.toggleFavorite(selectedDocument!!)
+                kotlinx.coroutines.MainScope().launch {
+                    kotlinx.coroutines.delay(50)
+                    selectedDocument = uiState.documents.find { it.id == docId }
+                }
             },
             onDelete = {
                 showDocumentDetail = false

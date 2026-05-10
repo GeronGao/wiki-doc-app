@@ -416,8 +416,14 @@ fun HomeScreen(
                 document = selectedDocument!!,
                 onDismiss = { showDocumentDetail = false },
                 onFavorite = {
+                    val docId = selectedDocument!!.id
                     selectedDocument = selectedDocument!!.copy(isFavorite = !selectedDocument!!.isFavorite)
                     viewModel.toggleFavorite(selectedDocument!!)
+                    kotlinx.coroutines.MainScope().launch {
+                        kotlinx.coroutines.delay(50)
+                        selectedDocument = uiState.recentDocuments.find { it.id == docId }
+                            ?: uiState.favoriteDocuments.find { it.id == docId }
+                    }
                 },
                 onDelete = {
                     showDocumentDetail = false
