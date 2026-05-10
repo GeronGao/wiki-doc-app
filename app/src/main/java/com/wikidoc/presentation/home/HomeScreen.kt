@@ -538,11 +538,13 @@ fun FolderCard(
                 var dragStarted = false
 
                 awaitEachGesture {
+                    if (showActions) {
+                        return@awaitEachGesture
+                    }
                     val down = awaitFirstDown(requireUnconsumed = false)
                     hasMoved = false
                     longPressTriggered = false
                     dragStarted = false
-                    showActions = false
 
                     val gestureStartTime = System.currentTimeMillis()
 
@@ -724,11 +726,13 @@ fun DocumentCard(
                 var dragStarted = false
 
                 awaitEachGesture {
+                    if (showActions) {
+                        return@awaitEachGesture
+                    }
                     val down = awaitFirstDown(requireUnconsumed = false)
                     hasMoved = false
                     longPressTriggered = false
                     dragStarted = false
-                    showActions = false
 
                     val gestureStartTime = System.currentTimeMillis()
                     val initialCardPos = cardPosition
