@@ -20,3 +20,4 @@ build
 *.db-wal
 gradle/wrapper/gradle-wrapper.jar
 local.properties
+.trae/
