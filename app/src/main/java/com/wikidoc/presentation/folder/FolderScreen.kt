@@ -4,9 +4,11 @@ import androidx.compose.animation.core.*
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -501,6 +503,7 @@ fun FolderTreeItem(
 ) {
     var cardPosition by remember { mutableStateOf(Offset.Zero) }
     var showActions by remember { mutableStateOf(false) }
+    var isDragging by remember { mutableStateOf(false) }
     val backgroundColor = if (isDragTarget) Primary.copy(alpha = 0.1f) else MaterialTheme.colorScheme.surface
 
     Card(
@@ -515,51 +518,44 @@ fun FolderTreeItem(
                     Offset(cardPosition.x + size.width, cardPosition.y + size.height)
                 )
             }
+            .combinedClickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = {
+                    if (!showActions && !isDragging) {
+                        onClick()
+                    }
+                },
+                onLongClick = {
+                    if (!isDragging) {
+                        showActions = true
+                    }
+                }
+            )
             .pointerInput(folder.id) {
                 val longPressTimeout = 1000L
                 val moveThreshold = 30f
-                var hasMoved = false
-                var longPressTriggered = false
-                var dragStarted = false
 
                 awaitEachGesture {
                     val down = awaitFirstDown(requireUnconsumed = false)
-                    
-                    if (showActions) {
-                        showActions = false
-                        return@awaitEachGesture
-                    }
-                    
-                    hasMoved = false
-                    longPressTriggered = false
-                    dragStarted = false
-
                     val gestureStartTime = System.currentTimeMillis()
+                    var dragged = false
 
                     while (true) {
                         val event = awaitPointerEvent()
                         val changes = event.changes
-
                         if (changes.isEmpty()) break
 
                         val currentTime = System.currentTimeMillis()
                         val elapsed = currentTime - gestureStartTime
-                        val firstChange = changes.first()
-                        val currentPos = firstChange.position
+                        val currentPos = changes.first().position
                         val distance = (currentPos - down.position).getDistance()
 
-                        if (distance > moveThreshold) {
-                            hasMoved = true
-                        }
-
-                        if (elapsed >= longPressTimeout && !longPressTriggered) {
-                            longPressTriggered = true
-                            showActions = true
-                        }
-
-                        if (longPressTriggered && distance > moveThreshold && !dragStarted) {
-                            dragStarted = true
+                        if (elapsed >= longPressTimeout && distance > moveThreshold && !dragged && showActions) {
+                            dragged = true
+                            isDragging = true
                             showActions = false
+                            changes.forEach { it.consume() }
                             val absolutePos = Offset(
                                 cardPosition.x + down.position.x,
                                 cardPosition.y + down.position.y
@@ -567,7 +563,7 @@ fun FolderTreeItem(
                             onDragStart(absolutePos)
                         }
 
-                        if (dragStarted) {
+                        if (dragged) {
                             changes.forEach { it.consume() }
                             val absoluteCurrentPos = Offset(
                                 cardPosition.x + currentPos.x,
@@ -577,11 +573,9 @@ fun FolderTreeItem(
                         }
 
                         if (!changes.any { it.pressed }) {
-                            if (dragStarted) {
+                            if (dragged) {
                                 onDragEnd()
-                                showActions = false
-                            } else if (!longPressTriggered) {
-                                onClick()
+                                isDragging = false
                             }
                             break
                         }
@@ -683,6 +677,7 @@ fun DocumentTreeItemFolder(
 ) {
     var cardPosition by remember { mutableStateOf(Offset.Zero) }
     var showActions by remember { mutableStateOf(false) }
+    var isDragging by remember { mutableStateOf(false) }
 
     Card(
         modifier = Modifier
@@ -691,52 +686,45 @@ fun DocumentTreeItemFolder(
             .onGloballyPositioned { coordinates ->
                 cardPosition = coordinates.positionInRoot()
             }
+            .combinedClickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = {
+                    if (!showActions && !isDragging) {
+                        onClick()
+                    }
+                },
+                onLongClick = {
+                    if (!isDragging) {
+                        showActions = true
+                    }
+                }
+            )
             .pointerInput(document.id) {
                 val longPressTimeout = 1000L
                 val moveThreshold = 30f
-                var hasMoved = false
-                var longPressTriggered = false
-                var dragStarted = false
 
                 awaitEachGesture {
                     val down = awaitFirstDown(requireUnconsumed = false)
-                    
-                    if (showActions) {
-                        showActions = false
-                        return@awaitEachGesture
-                    }
-                    
-                    hasMoved = false
-                    longPressTriggered = false
-                    dragStarted = false
-
                     val gestureStartTime = System.currentTimeMillis()
                     val initialCardPos = cardPosition
+                    var dragged = false
 
                     while (true) {
                         val event = awaitPointerEvent()
                         val changes = event.changes
-
                         if (changes.isEmpty()) break
 
                         val currentTime = System.currentTimeMillis()
                         val elapsed = currentTime - gestureStartTime
-                        val firstChange = changes.first()
-                        val currentPos = firstChange.position
+                        val currentPos = changes.first().position
                         val distance = (currentPos - down.position).getDistance()
 
-                        if (distance > moveThreshold) {
-                            hasMoved = true
-                        }
-
-                        if (elapsed >= longPressTimeout && !longPressTriggered) {
-                            longPressTriggered = true
-                            showActions = true
-                        }
-
-                        if (longPressTriggered && distance > moveThreshold && !dragStarted) {
-                            dragStarted = true
+                        if (elapsed >= longPressTimeout && distance > moveThreshold && !dragged && showActions) {
+                            dragged = true
+                            isDragging = true
                             showActions = false
+                            changes.forEach { it.consume() }
                             val absolutePos = Offset(
                                 initialCardPos.x + down.position.x,
                                 initialCardPos.y + down.position.y
@@ -744,7 +732,7 @@ fun DocumentTreeItemFolder(
                             onDragStart(absolutePos)
                         }
 
-                        if (dragStarted) {
+                        if (dragged) {
                             changes.forEach { it.consume() }
                             val absoluteCurrentPos = Offset(
                                 cardPosition.x + currentPos.x,
@@ -754,11 +742,9 @@ fun DocumentTreeItemFolder(
                         }
 
                         if (!changes.any { it.pressed }) {
-                            if (dragStarted) {
+                            if (dragged) {
                                 onDragEnd()
-                                showActions = false
-                            } else if (!longPressTriggered) {
-                                onClick()
+                                isDragging = false
                             }
                             break
                         }
