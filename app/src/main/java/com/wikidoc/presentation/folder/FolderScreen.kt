@@ -430,7 +430,7 @@ fun FolderTreeItem(
                 )
             }
             .pointerInput(folder.id) {
-                val longPressTimeout = 500L
+                val longPressTimeout = 1000L
                 val moveThreshold = 30f
                 var hasMoved = false
                 var dragStarted = false
@@ -557,7 +557,7 @@ fun DocumentTreeItemFolder(
                 cardPosition = coordinates.positionInRoot()
             }
             .pointerInput(document.id) {
-                val longPressTimeout = 500L
+                val longPressTimeout = 1000L
                 val moveThreshold = 30f
                 var hasMoved = false
                 var triggeredLongPress = false

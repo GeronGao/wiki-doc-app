@@ -442,7 +442,7 @@ fun FolderCard(
                 )
             }
             .pointerInput(folder.id) {
-                val longPressTimeout = 500L
+                val longPressTimeout = 1000L
                 val moveThreshold = 30f
                 var hasMoved = false
                 var dragStarted = false
@@ -576,7 +576,7 @@ fun DocumentCard(
                 onPositioned(cardPosition)
             }
             .pointerInput(document.id) {
-                val longPressTimeout = 500L
+                val longPressTimeout = 1000L
                 val moveThreshold = 30f
                 var hasMoved = false
                 var dragStarted = false
