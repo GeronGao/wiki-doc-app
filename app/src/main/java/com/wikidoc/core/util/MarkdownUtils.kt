@@ -220,7 +220,6 @@ object MarkdownUtils {
         .mermaid svg {
             max-width: 100%;
             height: auto;
-            transform-origin: top center;
         }
     """.trimIndent()
 

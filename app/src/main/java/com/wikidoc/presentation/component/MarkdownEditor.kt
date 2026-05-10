@@ -487,7 +487,7 @@ fun MarkdownWebPreview(
     onModeChange: (EditorMode) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var currentZoom by remember { mutableFloatStateOf(0.5f) }
+    var currentZoom by remember { mutableFloatStateOf(1.0f) }
     var showModeMenu by remember { mutableStateOf(false) }
 
     Column(
@@ -650,13 +650,7 @@ fun MarkdownWebPreview(
                                 width: 100%;
                             }
                             body {
-                                transform: scale($zoom);
-                                transform-origin: top left;
-                                width: ${100 / zoom}%;
-                            }
-                            .mermaid svg {
-                                transform: scale(${1 / zoom});
-                                transform-origin: top center;
+                                zoom: $zoom;
                             }
                         </style>
                     </head>
