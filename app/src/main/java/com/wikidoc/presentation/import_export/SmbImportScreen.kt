@@ -91,7 +91,8 @@ fun SmbImportScreen(
                             }
                         }
                     }
-                }
+                },
+                windowInsets = WindowInsets(0.dp)
             )
         }
     ) { paddingValues ->

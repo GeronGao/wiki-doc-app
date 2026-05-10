@@ -94,7 +94,8 @@ fun EditorScreen(
                             )
                         }
                     }
-                }
+                },
+                windowInsets = WindowInsets(0.dp)
             )
         }
     ) { padding ->

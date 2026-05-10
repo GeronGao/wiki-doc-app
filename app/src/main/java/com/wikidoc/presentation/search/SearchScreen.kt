@@ -47,7 +47,8 @@ fun SearchScreen(
                             }
                         }
                     )
-                }
+                },
+                windowInsets = WindowInsets(0.dp)
             )
         }
     ) { padding ->

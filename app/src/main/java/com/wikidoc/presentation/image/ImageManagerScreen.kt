@@ -35,7 +35,8 @@ fun ImageManagerScreen(
                             Icon(Icons.Default.Delete, contentDescription = "删除")
                         }
                     }
-                }
+                },
+                windowInsets = WindowInsets(0.dp)
             )
         }
     ) { padding ->

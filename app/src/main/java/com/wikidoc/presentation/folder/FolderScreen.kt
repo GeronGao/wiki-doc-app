@@ -128,7 +128,8 @@ fun FolderScreen(
                             Icon(Icons.Default.CreateNewFolder, contentDescription = "新建文件夹")
                         }
                     }
-                }
+                },
+                windowInsets = WindowInsets(0.dp)
             )
         },
         floatingActionButton = {

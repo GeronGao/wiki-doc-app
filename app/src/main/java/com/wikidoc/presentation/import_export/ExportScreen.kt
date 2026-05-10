@@ -25,7 +25,8 @@ fun ExportScreen(
                         Icon(Icons.Default.ArrowBack, contentDescription = "返回")
                     }
                 },
-                title = { Text("导出文档") }
+                title = { Text("导出文档") },
+                windowInsets = WindowInsets(0.dp)
             )
         }
     ) { padding ->

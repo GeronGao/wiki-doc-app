@@ -29,7 +29,8 @@ fun SettingsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("设置") }
+                title = { Text("设置") },
+                windowInsets = WindowInsets(0.dp)
             )
         }
     ) { padding ->
