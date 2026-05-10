@@ -258,7 +258,10 @@ fun HomeScreen(
                                     document = document,
                                     isBeingDragged = isDraggingThis,
                                     onClick = { if (!dragState.isDragging) onDocumentClick(document.id) },
-                                    onFavorite = { viewModel.toggleFavorite(document) },
+                                    onFavorite = {
+                                        val docId = document.id
+                                        viewModel.toggleFavorite(document.copy(isFavorite = !document.isFavorite))
+                                    },
                                     onDelete = {
                                         selectedDocument = document
                                         deleteTarget = DeleteTarget.Document(document.id, document.title)

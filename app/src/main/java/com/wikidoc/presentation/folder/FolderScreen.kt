@@ -241,7 +241,7 @@ fun FolderScreen(
                                 if (!dragState.isDragging) onDocumentClick(document.id)
                             },
                             onFavorite = {
-                                viewModel.toggleFavorite(document)
+                                viewModel.toggleFavorite(document.copy(isFavorite = !document.isFavorite))
                             },
                             onDelete = {
                                 selectedDocument = document

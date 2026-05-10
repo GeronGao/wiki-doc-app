@@ -90,7 +90,7 @@ fun FavoritesScreen(
                     FavoriteDocumentItem(
                         document = document,
                         onClick = { onDocumentClick(document.id) },
-                        onToggleFavorite = { viewModel.toggleFavorite(document) }
+                        onToggleFavorite = { viewModel.toggleFavorite(document.copy(isFavorite = !document.isFavorite)) }
                     )
                 }
             }
