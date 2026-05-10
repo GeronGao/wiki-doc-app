@@ -505,7 +505,8 @@ fun XiaohongshuTopBar(
         },
         colors = TopAppBarDefaults.topAppBarColors(
             containerColor = Background
-        )
+        ),
+        windowInsets = WindowInsets(0.dp)
     )
 }
 
