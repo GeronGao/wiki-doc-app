@@ -468,14 +468,18 @@ fun FolderCard(
 
                         if (distance > moveThreshold) {
                             hasMoved = true
-                            if (!dragStarted) {
-                                dragStarted = true
-                                val absolutePos = Offset(
-                                    cardPosition.x + down.position.x,
-                                    cardPosition.y + down.position.y
-                                )
-                                onDragStart(absolutePos)
-                            }
+                        }
+
+                        if (elapsed >= longPressTimeout && !dragStarted) {
+                            dragStarted = true
+                            val absolutePos = Offset(
+                                cardPosition.x + down.position.x,
+                                cardPosition.y + down.position.y
+                            )
+                            onDragStart(absolutePos)
+                        }
+
+                        if (dragStarted) {
                             changes.forEach { it.consume() }
                             val absoluteCurrentPos = Offset(
                                 cardPosition.x + currentPos.x,
@@ -601,20 +605,20 @@ fun DocumentCard(
                         val currentPos = firstChange.position
                         val distance = (currentPos - down.position).getDistance()
 
-                        if (elapsed >= longPressTimeout && !hasMoved) {
-                            onLongClick()
-                        }
-
                         if (distance > moveThreshold) {
                             hasMoved = true
-                            if (!dragStarted) {
-                                dragStarted = true
-                                val absolutePos = Offset(
-                                    initialCardPos.x + down.position.x,
-                                    initialCardPos.y + down.position.y
-                                )
-                                onDragStart(absolutePos)
-                            }
+                        }
+
+                        if (elapsed >= longPressTimeout && !dragStarted) {
+                            dragStarted = true
+                            val absolutePos = Offset(
+                                initialCardPos.x + down.position.x,
+                                initialCardPos.y + down.position.y
+                            )
+                            onDragStart(absolutePos)
+                        }
+
+                        if (dragStarted) {
                             changes.forEach { it.consume() }
                             val absoluteCurrentPos = Offset(
                                 cardPosition.x + currentPos.x,

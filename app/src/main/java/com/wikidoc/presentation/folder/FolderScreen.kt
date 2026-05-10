@@ -456,14 +456,18 @@ fun FolderTreeItem(
 
                         if (distance > moveThreshold) {
                             hasMoved = true
-                            if (!dragStarted) {
-                                dragStarted = true
-                                val absolutePos = Offset(
-                                    cardPosition.x + down.position.x,
-                                    cardPosition.y + down.position.y
-                                )
-                                onDragStart(absolutePos)
-                            }
+                        }
+
+                        if (elapsed >= longPressTimeout && !dragStarted) {
+                            dragStarted = true
+                            val absolutePos = Offset(
+                                cardPosition.x + down.position.x,
+                                cardPosition.y + down.position.y
+                            )
+                            onDragStart(absolutePos)
+                        }
+
+                        if (dragStarted) {
                             changes.forEach { it.consume() }
                             val absoluteCurrentPos = Offset(
                                 cardPosition.x + currentPos.x,
@@ -560,13 +564,11 @@ fun DocumentTreeItemFolder(
                 val longPressTimeout = 1000L
                 val moveThreshold = 30f
                 var hasMoved = false
-                var triggeredLongPress = false
                 var dragStarted = false
 
                 awaitEachGesture {
                     val down = awaitFirstDown(requireUnconsumed = false)
                     hasMoved = false
-                    triggeredLongPress = false
                     dragStarted = false
 
                     val gestureStartTime = System.currentTimeMillis()
@@ -584,21 +586,20 @@ fun DocumentTreeItemFolder(
                         val currentPos = firstChange.position
                         val distance = (currentPos - down.position).getDistance()
 
-                        if (elapsed >= longPressTimeout && !triggeredLongPress && !hasMoved) {
-                            triggeredLongPress = true
-                            onLongClick()
-                        }
-
                         if (distance > moveThreshold) {
                             hasMoved = true
-                            if (!dragStarted) {
-                                dragStarted = true
-                                val absolutePos = Offset(
-                                    initialCardPos.x + down.position.x,
-                                    initialCardPos.y + down.position.y
-                                )
-                                onDragStart(absolutePos)
-                            }
+                        }
+
+                        if (elapsed >= longPressTimeout && !dragStarted) {
+                            dragStarted = true
+                            val absolutePos = Offset(
+                                initialCardPos.x + down.position.x,
+                                initialCardPos.y + down.position.y
+                            )
+                            onDragStart(absolutePos)
+                        }
+
+                        if (dragStarted) {
                             changes.forEach { it.consume() }
                             val absoluteCurrentPos = Offset(
                                 cardPosition.x + currentPos.x,
@@ -610,6 +611,8 @@ fun DocumentTreeItemFolder(
                         if (!changes.any { it.pressed }) {
                             if (dragStarted) {
                                 onDragEnd()
+                            } else if (!hasMoved) {
+                                onClick()
                             }
                             break
                         }
