@@ -14,8 +14,9 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
@@ -46,19 +47,24 @@ fun MarkdownEditor(
     isSaved: Boolean,
     modifier: Modifier = Modifier
 ) {
-    var textFieldValue by remember(content) {
-        mutableStateOf(TextFieldValue(content, TextRange(content.length)))
+    var textFieldValue by remember {
+        mutableStateOf(TextFieldValue(content))
     }
 
-    val previewHtml = remember(content) {
-        mutableStateOf(MarkdownUtils.parseToHtml(content))
+    LaunchedEffect(content) {
+        if (textFieldValue.text != content) {
+            textFieldValue = TextFieldValue(content, TextRange(textFieldValue.selection.start))
+        }
     }
 
     LaunchedEffect(textFieldValue.text) {
-        previewHtml.value = MarkdownUtils.parseToHtml(textFieldValue.text)
         if (textFieldValue.text != content) {
             onContentChange(textFieldValue.text)
         }
+    }
+
+    val previewHtml by remember(textFieldValue.text) {
+        derivedStateOf { MarkdownUtils.parseToHtml(textFieldValue.text) }
     }
 
     Column(
@@ -91,7 +97,7 @@ fun MarkdownEditor(
 
             if (editorMode != EditorMode.EDIT) {
                 MarkdownWebPreview(
-                    html = previewHtml.value,
+                    html = previewHtml,
                     editorMode = editorMode,
                     onModeChange = onModeChange,
                     modifier = Modifier
@@ -414,10 +420,12 @@ fun TitleAndContentEditor(
     onTextChange: (TextFieldValue) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val contentFocusRequester = remember(textFieldValue) { FocusRequester() }
+    val titleFocusRequester = remember(textFieldValue) { FocusRequester() }
+
     Column(
         modifier = modifier
             .padding(16.dp)
-            .verticalScroll(rememberScrollState())
     ) {
         BasicTextField(
             value = title,
@@ -443,7 +451,9 @@ fun TitleAndContentEditor(
                     innerTextField()
                 }
             },
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier
+                .fillMaxWidth()
+                .focusRequester(titleFocusRequester)
         )
 
         Spacer(modifier = Modifier.height(16.dp))
@@ -462,7 +472,7 @@ fun TitleAndContentEditor(
             ),
             cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
             decorationBox = { innerTextField ->
-                Box(modifier = Modifier.heightIn(min = 400.dp)) {
+                Box(modifier = Modifier.weight(1f)) {
                     if (textFieldValue.text.isEmpty()) {
                         Text(
                             text = "开始写作...",
@@ -475,7 +485,10 @@ fun TitleAndContentEditor(
                     innerTextField()
                 }
             },
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f)
+                .focusRequester(contentFocusRequester)
         )
     }
 }
